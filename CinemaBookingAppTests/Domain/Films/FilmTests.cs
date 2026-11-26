@@ -21,7 +21,7 @@ public class FilmTests
     [Fact]
     public void Constructor_ShouldRejectEmptyTitle()
     {
-        Action act = () => new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(100));
+        Action act = () => new Film(Guid.NewGuid(), "", Genre.Drama, TimeSpan.FromMinutes(100));
 
         act.Should().Throw<ArgumentException>();
     }

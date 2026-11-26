@@ -2,12 +2,14 @@ namespace CinemaBookingApp.Domain.Time;
 
 public static class StartingTime
 {
-    public static bool IsValid(DateTime endPreviousShowing, DateTime startProposedShowing)
+    public static bool isFutureTime(DateTime proposedStart)
+    {
+        return proposedStart > DateTime.Now;
+    }
+    
+    public static bool IsValidBuffer(DateTime endPreviousShowing, DateTime startProposedShowing)
     {
         TimeSpan bufferTime = TimeSpan.FromMinutes(30);
-        
-        if (startProposedShowing < DateTime.Now)
-            return false;
         
         var earliestStart = endPreviousShowing;
         TimeShift.Add(ref earliestStart, bufferTime);

@@ -155,17 +155,38 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var roomNumber = Guid.NewGuid();
+        var firstDayRoom = new Room(roomNumber, Array.Empty<Showing>());
+        var secondDayRoom = new Room(roomNumber, Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(23);
-        manager.AddShowing(schedule, room, Guid.NewGuid(), film, start, 12.50m);
-        Action overlap = () => manager.AddShowing(schedule, room, Guid.NewGuid(), film, start.AddMinutes(149), 12.50m);
+        manager.AddShowing(schedule, firstDayRoom, Guid.NewGuid(), film, start, 12.50m);
+        Action overlap = () => manager.AddShowing(schedule, secondDayRoom, Guid.NewGuid(), film, start.AddMinutes(149), 12.50m);
 
         overlap.Should().Throw<InvalidOperationException>();
-        manager.AddShowing(schedule, room, Guid.NewGuid(), film, start.AddMinutes(150), 12.50m);
+        manager.AddShowing(schedule, secondDayRoom, Guid.NewGuid(), film, start.AddMinutes(150), 12.50m);
 
-        room.Showings.Should().HaveCount(2);
+        firstDayRoom.Showings.Should().ContainSingle();
+        secondDayRoom.Showings.Should().ContainSingle();
         schedule.ScheduleEntries.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void AddShowing_ShouldCheckPreviousDayWhenNextDayIsScheduledFirst()
+    {
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var schedule = new Schedule();
+        var roomNumber = Guid.NewGuid();
+        var firstDayRoom = new Room(roomNumber, Array.Empty<Showing>());
+        var secondDayRoom = new Room(roomNumber, Array.Empty<Showing>());
+        var film = CreateFilm();
+        var start = DateTime.Today.AddDays(2).AddHours(23);
+        manager.AddShowing(schedule, secondDayRoom, Guid.NewGuid(), film, start.AddMinutes(149), 12.50m);
+        Action act = () => manager.AddShowing(schedule, firstDayRoom, Guid.NewGuid(), film, start, 12.50m);
+
+        act.Should().Throw<InvalidOperationException>();
+        firstDayRoom.Showings.Should().BeEmpty();
+        secondDayRoom.Showings.Should().ContainSingle();
     }
 
     [Fact]

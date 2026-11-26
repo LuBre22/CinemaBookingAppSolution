@@ -30,6 +30,10 @@ public sealed class ScheduleLine
     public void AddShowing(Showing showing)
     {
         ArgumentNullException.ThrowIfNull(showing);
+        
+        if (showing.StartingTime.Date != _date.ToDateTime(TimeOnly.MinValue).Date)
+            throw new InvalidOperationException("The showing's date does not match the schedule line's date.");
+        
         _room.AddShowing(showing);
     }
 }

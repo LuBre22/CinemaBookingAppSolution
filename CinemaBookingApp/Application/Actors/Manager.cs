@@ -16,6 +16,7 @@ public sealed class Manager
     public void AddShowing(Schedule schedule, Room room, Guid showingId, Film film, DateTime startingTime, Decimal ticketPrice)
     {
         ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(film);
         
         if (!_isValidShowtime(startingTime, film.Duration, room))
             throw new InvalidOperationException("The showing overlaps with an existing showing in the room.");
@@ -48,13 +49,16 @@ public sealed class Manager
     
     private bool _isValidShowtime(DateTime proposedStart, TimeSpan duration, Room room)
     {
+        if (!StartingTime.isFutureTime(proposedStart))
+            return false;
+        
         var proposedEnd = proposedStart;
         TimeShift.Add(ref proposedEnd, duration);
 
         foreach (var existing in room.Showings!)
         {
-            bool fitsAfter = StartingTime.IsValid(existing.EndingTime, proposedStart);
-            bool fitsBefore = StartingTime.IsValid(proposedEnd, existing.StartingTime);
+            bool fitsAfter = StartingTime.IsValidBuffer(existing.EndingTime, proposedStart);
+            bool fitsBefore = StartingTime.IsValidBuffer(proposedEnd, existing.StartingTime);
 
             if (!fitsBefore && !fitsAfter)
                 return false;

@@ -28,7 +28,7 @@ public class ScheduleTests
         var schedule = new Schedule();
         var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
         var first = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-        var second = new ScheduleLine(room, new DateOnly(2030, 1, 2));
+        var second = new ScheduleLine(new Room(room.RoomNumber, Array.Empty<Showing>()), new DateOnly(2030, 1, 2));
         schedule.AddScheduleEntry(first);
         schedule.AddScheduleEntry(second);
 
