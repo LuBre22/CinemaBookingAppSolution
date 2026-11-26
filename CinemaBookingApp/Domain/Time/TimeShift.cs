@@ -2,10 +2,8 @@ namespace CinemaBookingApp.Domain.Time;
 
 public static class TimeShift
 {
-    public static void AddMinutes(ref DateTime time, int minutes)
+    public static void Add(ref DateTime start, TimeSpan duration)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(minutes, nameof(minutes));
-        
-        time = time.AddMinutes(minutes);
+        start = start.Add(duration);
     }
 }

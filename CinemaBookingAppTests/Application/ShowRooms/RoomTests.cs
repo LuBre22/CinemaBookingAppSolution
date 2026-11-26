@@ -52,4 +52,54 @@ public class RoomTests
 
         act.Should().Throw<ArgumentException>().WithParameterName("showings");
     }
+
+    [Fact]
+    public void AddShowing_ShouldAddShowingToRoom()
+    {
+        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var showing = CreateShowing();
+
+        room.AddShowing(showing);
+
+        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
+    }
+
+    [Fact]
+    public void AddShowing_ShouldRejectNull()
+    {
+        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        Action act = () => room.AddShowing(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("showing");
+        room.Showings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RemoveShowing_ShouldRemoveOnlyMatchingShowing()
+    {
+        var removed = CreateShowing();
+        var remaining = CreateShowing();
+        var room = new Room(Guid.NewGuid(), new[] { removed, remaining });
+
+        room.RemoveShowing(removed.ShowingId);
+
+        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(remaining);
+    }
+
+    [Fact]
+    public void RemoveShowing_ShouldLeaveRoomUnchangedForUnknownId()
+    {
+        var showing = CreateShowing();
+        var room = new Room(Guid.NewGuid(), new[] { showing });
+
+        room.RemoveShowing(Guid.NewGuid());
+
+        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
+    }
+
+    private static Showing CreateShowing()
+    {
+        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        return new Showing(Guid.NewGuid(), film, new DateTime(2030, 1, 1, 12, 0, 0), 12.50m);
+    }
 }

@@ -6,46 +6,64 @@ namespace CinemaBookingAppTests.Domain.Time;
 public class TimeShiftTests
 {
     [Fact]
-    public void AddMinutes_ShouldAdvanceTimeAcrossDayBoundary()
+    public void Add_ShouldAdvanceTimeAcrossDayBoundary()
     {
         var time = new DateTime(2026, 11, 26, 23, 45, 0, DateTimeKind.Utc);
 
-        TimeShift.AddMinutes(ref time, 30);
+        TimeShift.Add(ref time, TimeSpan.FromMinutes(30));
 
         time.Should().Be(new DateTime(2026, 11, 27, 0, 15, 0, DateTimeKind.Utc));
         time.Kind.Should().Be(DateTimeKind.Utc);
     }
 
     [Fact]
-    public void AddMinutes_ShouldLeaveTimeUnchangedForZeroMinutes()
+    public void Add_ShouldLeaveTimeUnchangedForZeroDuration()
     {
         var time = new DateTime(2026, 11, 26, 12, 0, 0);
         var originalTime = time;
 
-        TimeShift.AddMinutes(ref time, 0);
+        TimeShift.Add(ref time, TimeSpan.Zero);
 
         time.Should().Be(originalTime);
     }
 
     [Fact]
-    public void AddMinutes_ShouldRejectNegativeMinutesWithoutChangingTime()
+    public void Add_ShouldMoveTimeBackwardForNegativeDuration()
     {
         var time = new DateTime(2026, 11, 26, 12, 0, 0);
-        var originalTime = time;
-        Action act = () => TimeShift.AddMinutes(ref time, -1);
 
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("minutes");
-        time.Should().Be(originalTime);
+        TimeShift.Add(ref time, TimeSpan.FromMinutes(-1));
+
+        time.Should().Be(new DateTime(2026, 11, 26, 11, 59, 0));
     }
 
     [Fact]
-    public void AddMinutes_ShouldRejectOverflowWithoutChangingTime()
+    public void Add_ShouldPreserveSubMinutePrecision()
+    {
+        var time = new DateTime(2026, 11, 26, 12, 0, 0);
+
+        TimeShift.Add(ref time, TimeSpan.FromSeconds(30));
+
+        time.Should().Be(new DateTime(2026, 11, 26, 12, 0, 30));
+    }
+
+    [Fact]
+    public void Add_ShouldRejectOverflowWithoutChangingTime()
     {
         var time = DateTime.MaxValue;
-        Action act = () => TimeShift.AddMinutes(ref time, 1);
+        Action act = () => TimeShift.Add(ref time, TimeSpan.FromMinutes(1));
 
         act.Should().Throw<ArgumentOutOfRangeException>();
         time.Should().Be(DateTime.MaxValue);
+    }
+
+    [Fact]
+    public void Add_ShouldRejectUnderflowWithoutChangingTime()
+    {
+        var time = DateTime.MinValue;
+        Action act = () => TimeShift.Add(ref time, TimeSpan.FromTicks(-1));
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+        time.Should().Be(DateTime.MinValue);
     }
 }

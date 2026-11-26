@@ -16,9 +16,11 @@ public sealed class Room
         Showings?.Add(showing);
     }
     
-    public void RemoveShowing(Showing showing)
+    public void RemoveShowing(Guid showingId)
     {
-        Showings?.Remove(showing);
+        var showing = Showings?.FirstOrDefault(s => s.ShowingId == showingId);
+        if (showing != null)
+            Showings?.Remove(showing);
     }
     
     public  Guid RoomNumber => _roomNumber;
