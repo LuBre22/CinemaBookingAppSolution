@@ -1,4 +1,4 @@
-namespace CinemaBookingApp.Domain.Movie;
+namespace CinemaBookingApp.Domain.Films;
 
 public enum Genre
 {

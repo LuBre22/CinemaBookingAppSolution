@@ -1,14 +1,14 @@
-using CinemaBookingApp.Domain.Movie;
+using CinemaBookingApp.Domain.Films;
 using FluentAssertions;
 
-namespace CinemaBookingAppTests.Domain.Movie;
+namespace CinemaBookingAppTests.Domain.Films;
 
-public class MovieLibraryTests
+public class FilmCatalogTests
 {
     [Fact]
     public void GetAllMovies_ShouldReturnEmptyCollectionForAnEmptyLibrary()
     {
-        var library = new MovieLibrary();
+        var library = new FilmCatalog();
 
         var movies = library.GetAllMovies();
 
@@ -18,10 +18,10 @@ public class MovieLibraryTests
     [Fact]
     public void GetAllMovies_ShouldReturnAllMoviesStillInTheLibrary()
     {
-        var library = new MovieLibrary();
-        var first = new MovieEntry(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        var second = new MovieEntry(Guid.NewGuid(), "Other", Genre.Drama, TimeSpan.FromMinutes(100));
-        var removed = new MovieEntry(Guid.NewGuid(), "Removed", Genre.Comedy, TimeSpan.FromMinutes(90));
+        var library = new FilmCatalog();
+        var first = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        var second = new Film(Guid.NewGuid(), "Other", Genre.Drama, TimeSpan.FromMinutes(100));
+        var removed = new Film(Guid.NewGuid(), "Removed", Genre.Comedy, TimeSpan.FromMinutes(90));
         library.AddMovie(first);
         library.AddMovie(second);
         library.AddMovie(removed);
@@ -29,14 +29,14 @@ public class MovieLibraryTests
 
         var movies = library.GetAllMovies();
 
-        movies.Should().BeEquivalentTo(new[] { first, second });
+        movies.Should().BeEquivalentTo([first, second]);
     }
 
     [Fact]
     public void TryGetMovie_ShouldFindAnAddedMovieByItsIdentifier()
     {
-        var library = new MovieLibrary();
-        var movie = new MovieEntry(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        var library = new FilmCatalog();
+        var movie = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
 
         library.AddMovie(movie);
         var found = library.TryGetMovie(movie.MovieId, out var result);
@@ -48,9 +48,9 @@ public class MovieLibraryTests
     [Fact]
     public void TryGetMovie_ShouldDistinguishMoviesByIdentifier()
     {
-        var library = new MovieLibrary();
-        var first = new MovieEntry(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        var second = new MovieEntry(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        var library = new FilmCatalog();
+        var first = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        var second = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
         library.AddMovie(first);
         library.AddMovie(second);
 
@@ -67,7 +67,7 @@ public class MovieLibraryTests
     [Fact]
     public void TryGetMovie_ShouldReturnFalseForAnUnknownIdentifier()
     {
-        var library = new MovieLibrary();
+        var library = new FilmCatalog();
 
         var found = library.TryGetMovie(Guid.NewGuid(), out var result);
 
@@ -78,9 +78,9 @@ public class MovieLibraryTests
     [Fact]
     public void RemoveMovie_ShouldRemoveOnlyTheSpecifiedMovie()
     {
-        var library = new MovieLibrary();
-        var removed = new MovieEntry(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        var remaining = new MovieEntry(Guid.NewGuid(), "Other", Genre.Drama, TimeSpan.FromMinutes(100));
+        var library = new FilmCatalog();
+        var removed = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        var remaining = new Film(Guid.NewGuid(), "Other", Genre.Drama, TimeSpan.FromMinutes(100));
         library.AddMovie(removed);
         library.AddMovie(remaining);
 
