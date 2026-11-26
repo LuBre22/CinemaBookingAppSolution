@@ -1,0 +1,15 @@
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.GeneratedMSBuildEditorConfig.editorconfig
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.AssemblyInfoInputs.cache
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.AssemblyInfo.cs
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.csproj.CoreCompileInputs.cache
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.sourcelink.json
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/bin/Debug/net10.0/CinemaBookingApp.deps.json
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/bin/Debug/net10.0/CinemaBookingApp.dll
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/bin/Debug/net10.0/CinemaBookingApp.pdb
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.dll
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/refint/CinemaBookingApp.dll
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.pdb
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/ref/CinemaBookingApp.dll
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/bin/Debug/net10.0/CinemaBookingApp
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/bin/Debug/net10.0/CinemaBookingApp.runtimeconfig.json
+/home/lukas/RiderProjects/CinemaBookingAppSolution/CinemaBookingApp/obj/Debug/net10.0/CinemaBookingApp.genruntimeconfig.cache
