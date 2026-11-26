@@ -10,7 +10,9 @@
     <ItemGroup>
       <Folder Include="Application\" />
       <Folder Include="Cli\" />
-      <Folder Include="Domain\" />
+      <Folder Include="Domain\Currency\" />
+      <Folder Include="Domain\Movie\" />
+      <Folder Include="Domain\Time\" />
     </ItemGroup>
 
 </Project>
