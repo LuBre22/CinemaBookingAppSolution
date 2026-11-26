@@ -1,4 +1,5 @@
 # Cinema Ticket Booking System – One-Pager
+
 Domäne: Kinobetrieb (Programm, Vorstellungen, Platzbuchung) · Architektur: Clean Architecture (Domain,
 Services, Repository-Ports, Adapter) · Plattform: C# 14 / .NET 10 LTS · Währung: EUR
 
