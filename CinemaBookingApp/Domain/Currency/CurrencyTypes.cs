@@ -1,6 +1,6 @@
 namespace CinemaBookingApp.Domain.Currency;
 
-public enum Currency
+public enum CurrencyTypes
 {
     Euro
 }
