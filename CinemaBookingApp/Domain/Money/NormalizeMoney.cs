@@ -1,8 +1,8 @@
 namespace CinemaBookingApp.Domain.Money;
 
-public class NormalizeMoney
+public static class NormalizeMoney
 {
-    public decimal Convert(decimal amount)
+    public static decimal Convert(decimal amount)
     {
         return decimal.Round(amount, 2);
     }

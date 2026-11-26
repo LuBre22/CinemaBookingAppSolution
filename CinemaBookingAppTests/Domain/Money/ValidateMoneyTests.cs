@@ -8,9 +8,7 @@ public class ValidateMoneyTests
     [Fact]
     public void IsPositive_ShouldReturnFalseForZero()
     {
-        var sut = new ValidateMoney();
-
-        var result = sut.IsPositive(0m);
+        var result = ValidateMoney.IsPositive(0m);
 
         result.Should().BeFalse();
     }
@@ -18,9 +16,7 @@ public class ValidateMoneyTests
     [Fact]
     public void IsPositive_ShouldReturnFalseForNegativeAmount()
     {
-        var sut = new ValidateMoney();
-
-        var result = sut.IsPositive(-1.25m);
+        var result = ValidateMoney.IsPositive(-1.25m);
 
         result.Should().BeFalse();
     }
@@ -28,9 +24,7 @@ public class ValidateMoneyTests
     [Fact]
     public void IsTwoDecimals_ShouldReturnFalseForAmountsWithMoreThanTwoDecimalPlaces()
     {
-        var sut = new ValidateMoney();
-
-        var result = sut.IsTwoDecimals(12.345m);
+        var result = ValidateMoney.IsTwoDecimals(12.345m);
 
         result.Should().BeFalse();
     }
