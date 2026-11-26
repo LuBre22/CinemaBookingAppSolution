@@ -11,7 +11,7 @@ public class RoomTests
     {
         var id = Guid.NewGuid();
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        var showing = new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0));
+        var showing = new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), 12.50m);
         var showings = new List<Showing> { showing };
 
         var room = new Room(id, showings);
