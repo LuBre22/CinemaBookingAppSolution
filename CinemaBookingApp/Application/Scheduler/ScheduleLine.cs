@@ -4,36 +4,47 @@ namespace CinemaBookingApp.Application.Scheduler;
 
 public sealed class ScheduleLine
 {
-    private readonly Room _room;
-    private readonly DateOnly _date;
-    
-    public ScheduleLine(Room room, DateOnly date)
+    private readonly IReadOnlyList<Room> _rooms;
+    public DateOnly Date { get; }
+
+    internal ScheduleLine(DateOnly date, IReadOnlyList<Room> rooms)
     {
-        ArgumentNullException.ThrowIfNull(room);
-        _room = room;
-        _date = date;
+        Date = date;
+        _rooms = rooms;
     }
-    
-    public Room Room => _room;
-    public DateOnly Date => _date;
-    
-    public IReadOnlyList<Showing>? GetAllShowings()
+
+    public IReadOnlyList<Showing> GetAllShowings()
     {
-        return _room.Showings;
+        return _rooms.SelectMany(room => room.Showings)
+            .Where(IsOnDate)
+            .OrderBy(showing => showing.StartingTime)
+            .ToList()
+            .AsReadOnly();
     }
-    
+
+    public IReadOnlyList<Showing> GetShowingsForRoom(Guid roomNumber)
+    {
+        return _rooms.Where(room => room.RoomNumber == roomNumber)
+            .SelectMany(room => room.Showings)
+            .Where(IsOnDate)
+            .OrderBy(showing => showing.StartingTime)
+            .ToList()
+            .AsReadOnly();
+    }
+
     public Showing? GetShowing(Guid showingId)
     {
-        return _room.Showings!.FirstOrDefault(showing => showing.ShowingId == showingId);
+        return GetAllShowings().FirstOrDefault(showing => showing.ShowingId == showingId);
     }
-    
-    public void AddShowing(Showing showing)
+
+    internal Room? FindRoom(Guid showingId)
     {
-        ArgumentNullException.ThrowIfNull(showing);
-        
-        if (showing.StartingTime.Date != _date.ToDateTime(TimeOnly.MinValue).Date)
-            throw new InvalidOperationException("The showing's date does not match the schedule line's date.");
-        
-        _room.AddShowing(showing);
+        return _rooms.FirstOrDefault(room =>
+            room.Showings.Any(showing => showing.ShowingId == showingId && IsOnDate(showing)));
+    }
+
+    private bool IsOnDate(Showing showing)
+    {
+        return DateOnly.FromDateTime(showing.StartingTime) == Date;
     }
 }

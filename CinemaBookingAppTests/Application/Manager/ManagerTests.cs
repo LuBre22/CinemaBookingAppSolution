@@ -35,6 +35,15 @@ public class ManagerTests
     }
 
     [Fact]
+    public void CreateFilm_ShouldRejectNullCatalog()
+    {
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        Action act = () => manager.CreateFilm(null!, "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("catalog");
+    }
+
+    [Fact]
     public void CreateFilm_ShouldRejectEmptyTitleWithoutAddingFilm()
     {
         var catalog = new FilmCatalog();
@@ -77,14 +86,14 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var id = Guid.NewGuid();
 
         manager.AddShowing(schedule, room, id, film, start, 12.50m);
 
-        var line = schedule.GetScheduleLine(room.RoomNumber, DateOnly.FromDateTime(start));
+        var line = schedule.GetScheduleLine(DateOnly.FromDateTime(start));
         line.Should().NotBeNull();
         var showing = room.Showings.Should().ContainSingle().Subject;
         showing.ShowingId.Should().Be(id);
@@ -102,7 +111,7 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         manager.AddShowing(schedule, room, Guid.NewGuid(), film, start, 12.50m);
@@ -121,7 +130,7 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         manager.AddShowing(schedule, room, Guid.NewGuid(), film, start, 12.50m);
@@ -137,8 +146,8 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var firstRoom = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var secondRoom = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var firstRoom = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
+        var secondRoom = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
 
@@ -147,7 +156,11 @@ public class ManagerTests
 
         firstRoom.Showings.Should().ContainSingle();
         secondRoom.Showings.Should().ContainSingle();
-        schedule.ScheduleEntries.Should().HaveCount(2);
+        schedule.ScheduleEntries.Should().ContainSingle();
+        var line = schedule.GetScheduleLine(DateOnly.FromDateTime(start));
+        line!.GetAllShowings().Should().HaveCount(2);
+        line.GetShowingsForRoom(firstRoom.RoomNumber).Should().ContainSingle();
+        line.GetShowingsForRoom(secondRoom.RoomNumber).Should().ContainSingle();
     }
 
     [Fact]
@@ -156,8 +169,8 @@ public class ManagerTests
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
         var roomNumber = Guid.NewGuid();
-        var firstDayRoom = new Room(roomNumber, Array.Empty<Showing>());
-        var secondDayRoom = new Room(roomNumber, Array.Empty<Showing>());
+        var firstDayRoom = CreateRoom(roomNumber, Array.Empty<Showing>());
+        var secondDayRoom = CreateRoom(roomNumber, Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(23);
         manager.AddShowing(schedule, firstDayRoom, Guid.NewGuid(), film, start, 12.50m);
@@ -166,8 +179,8 @@ public class ManagerTests
         overlap.Should().Throw<InvalidOperationException>();
         manager.AddShowing(schedule, secondDayRoom, Guid.NewGuid(), film, start.AddMinutes(150), 12.50m);
 
-        firstDayRoom.Showings.Should().ContainSingle();
-        secondDayRoom.Showings.Should().ContainSingle();
+        firstDayRoom.Should().BeSameAs(secondDayRoom);
+        firstDayRoom.Showings.Should().HaveCount(2);
         schedule.ScheduleEntries.Should().HaveCount(2);
     }
 
@@ -177,16 +190,46 @@ public class ManagerTests
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
         var roomNumber = Guid.NewGuid();
-        var firstDayRoom = new Room(roomNumber, Array.Empty<Showing>());
-        var secondDayRoom = new Room(roomNumber, Array.Empty<Showing>());
+        var firstDayRoom = CreateRoom(roomNumber, Array.Empty<Showing>());
+        var secondDayRoom = CreateRoom(roomNumber, Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(23);
         manager.AddShowing(schedule, secondDayRoom, Guid.NewGuid(), film, start.AddMinutes(149), 12.50m);
         Action act = () => manager.AddShowing(schedule, firstDayRoom, Guid.NewGuid(), film, start, 12.50m);
 
         act.Should().Throw<InvalidOperationException>();
-        firstDayRoom.Showings.Should().BeEmpty();
-        secondDayRoom.Showings.Should().ContainSingle();
+        firstDayRoom.Should().BeSameAs(secondDayRoom);
+        firstDayRoom.Showings.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void AddShowing_ShouldShareRoomAcrossDatesWhileKeepingDailyViewsSeparate()
+    {
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var schedule = new Schedule();
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
+        var film = CreateFilm();
+        var start = DateTime.Today.AddDays(2).AddHours(12);
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+
+        manager.AddShowing(schedule, room, firstId, film, start, 12.50m);
+        manager.AddShowing(schedule, Room.GetOrCreate(room.RoomNumber), secondId, film, start.AddDays(1), 12.50m);
+
+        var firstLine = schedule.GetScheduleLine(DateOnly.FromDateTime(start));
+        var secondLine = schedule.GetScheduleLine(DateOnly.FromDateTime(start.AddDays(1)));
+        firstLine.Should().NotBeNull();
+        secondLine.Should().NotBeNull();
+        secondLine.Should().NotBeNull();
+        room.Showings.Should().HaveCount(2);
+        firstLine.GetAllShowings().Should().ContainSingle().Which.ShowingId.Should().Be(firstId);
+        secondLine.GetAllShowings().Should().ContainSingle().Which.ShowingId.Should().Be(secondId);
+
+        manager.CancelShowing(schedule, firstId);
+
+        firstLine.GetAllShowings().Should().BeEmpty();
+        secondLine.GetAllShowings().Should().ContainSingle().Which.ShowingId.Should().Be(secondId);
+        schedule.GetShowing(secondId).Should().NotBeNull();
     }
 
     [Fact]
@@ -199,11 +242,29 @@ public class ManagerTests
     }
 
     [Fact]
+    public void AddShowing_ShouldRejectNullSchedule()
+    {
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        Action act = () => manager.AddShowing(null!, Room.GetOrCreate(Guid.NewGuid()), Guid.NewGuid(), CreateFilm(), DateTime.Now.AddDays(2), 12.50m);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("schedule");
+    }
+
+    [Fact]
+    public void CancelShowing_ShouldRejectNullSchedule()
+    {
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        Action act = () => manager.CancelShowing(null!, Guid.NewGuid());
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("schedule");
+    }
+
+    [Fact]
     public void AddShowing_ShouldRejectNullFilmWithoutSavingShowing()
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         Action act = () => manager.AddShowing(schedule, room, Guid.NewGuid(), null!, DateTime.Now.AddDays(2), 12.50m);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("film");
@@ -216,7 +277,7 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         Action act = () => manager.AddShowing(schedule, room, Guid.NewGuid(), CreateFilm(), DateTime.Now.AddDays(-1), 12.50m);
 
         act.Should().Throw<InvalidOperationException>();
@@ -229,7 +290,7 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         Action act = () => manager.AddShowing(schedule, room, Guid.NewGuid(), CreateFilm(), DateTime.Now.AddDays(2), 0m);
 
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("ticketPrice");
@@ -242,7 +303,7 @@ public class ManagerTests
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var id = Guid.NewGuid();
@@ -265,22 +326,55 @@ public class ManagerTests
     }
 
     [Fact]
+    public void CancelShowing_ShouldRemoveOnlyTheMatchingShowingFromItsRoom()
+    {
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var schedule = new Schedule();
+        var firstRoom = Room.GetOrCreate(Guid.NewGuid());
+        var secondRoom = Room.GetOrCreate(Guid.NewGuid());
+        var film = CreateFilm();
+        var start = DateTime.Today.AddDays(2).AddHours(12);
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        manager.AddShowing(schedule, firstRoom, firstId, film, start, 12.50m);
+        manager.AddShowing(schedule, secondRoom, secondId, film, start, 12.50m);
+
+        manager.CancelShowing(schedule, secondId);
+
+        firstRoom.Showings.Should().ContainSingle().Which.ShowingId.Should().Be(firstId);
+        secondRoom.Showings.Should().BeEmpty();
+        schedule.GetScheduleLine(DateOnly.FromDateTime(start))!.GetAllShowings()
+            .Should().ContainSingle().Which.ShowingId.Should().Be(firstId);
+    }
+
+    [Fact]
     public void CancelShowing_ShouldRejectShowingThatHasStarted()
     {
         var manager = new CinemaBookingApp.Application.Actors.Manager();
         var schedule = new Schedule();
         var start = DateTime.Now.AddDays(-1);
         var showing = new Showing(Guid.NewGuid(), CreateFilm(), start, 12.50m);
-        var room = new Room(Guid.NewGuid(), new[] { showing });
-        schedule.AddScheduleEntry(new ScheduleLine(room, DateOnly.FromDateTime(start)));
+        var room = CreateRoom(Guid.NewGuid(), new[] { showing });
+        var line = schedule.GetOrCreateScheduleLine(DateOnly.FromDateTime(start));
+        var futureFilm = CreateFilm();
+        manager.AddShowing(schedule, room, Guid.NewGuid(), futureFilm, DateTime.Today.AddDays(2).AddHours(12), 12.50m);
+        line.GetShowing(showing.ShowingId).Should().NotBeNull();
         Action act = () => manager.CancelShowing(schedule, showing.ShowingId);
 
         act.Should().Throw<InvalidOperationException>();
-        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
+        room.Showings.Should().Contain(showing);
     }
 
     private static Film CreateFilm()
     {
         return new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(120));
+    }
+
+    private static Room CreateRoom(Guid id, IEnumerable<Showing> showings)
+    {
+        var room = Room.GetOrCreate(id);
+        foreach (var showing in showings)
+            room.AddShowing(showing);
+        return room;
     }
 }

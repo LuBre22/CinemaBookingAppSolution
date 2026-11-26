@@ -1,27 +1,59 @@
+using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
+using CinemaBookingApp.Domain.Time;
+
 namespace CinemaBookingApp.Application.ShowRooms;
 
 public sealed class Room
 {
-    private readonly Guid _roomNumber;
-    public List<Showing>? Showings { get; } = new List<Showing>();
+    private static readonly ConcurrentDictionary<Guid, Lazy<Room>> Rooms = new();
+    private readonly List<Showing> _showings = new();
+    private readonly ReadOnlyCollection<Showing> _readOnlyShowings;
 
-    public Room(Guid roomNumber, IEnumerable<Showing> showings)
+    private Room(Guid roomNumber)
     {
-        _roomNumber = roomNumber;
-        Showings?.AddRange(showings);
+        RoomNumber = roomNumber;
+        _readOnlyShowings = _showings.AsReadOnly();
     }
-    
+
+    public static Room GetOrCreate(Guid roomNumber)
+    {
+        if (roomNumber == Guid.Empty)
+            throw new ArgumentException("Room number must not be empty.", nameof(roomNumber));
+
+        return Rooms.GetOrAdd(roomNumber, id => new Lazy<Room>(() => new Room(id))).Value;
+    }
+
+    public Guid RoomNumber { get; }
+    public IReadOnlyList<Showing> Showings => _readOnlyShowings;
+
     public void AddShowing(Showing showing)
     {
-        Showings?.Add(showing);
+        ArgumentNullException.ThrowIfNull(showing);
+        if (!FitsWithExistingShowings(showing))
+            throw new InvalidOperationException("The showing overlaps with an existing showing in the room.");
+
+        _showings.Add(showing);
     }
-    
+
     public void RemoveShowing(Guid showingId)
     {
-        var showing = Showings?.FirstOrDefault(s => s.ShowingId == showingId);
+        var showing = _showings.FirstOrDefault(s => s.ShowingId == showingId);
         if (showing != null)
-            Showings?.Remove(showing);
+            _showings.Remove(showing);
     }
-    
-    public  Guid RoomNumber => _roomNumber;
+
+    private bool FitsWithExistingShowings(Showing proposed)
+    {
+        foreach (var existing in _showings)
+        {
+            bool fitsAfter = StartingTime.IsValidBuffer(existing.EndingTime, proposed.StartingTime);
+            bool fitsBefore = StartingTime.IsValidBuffer(proposed.EndingTime, existing.StartingTime);
+
+            if (!fitsBefore && !fitsAfter)
+                return false;
+        }
+
+        return true;
+    }
 }

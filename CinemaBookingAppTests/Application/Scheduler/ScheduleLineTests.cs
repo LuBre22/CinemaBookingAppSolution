@@ -1,3 +1,4 @@
+using CinemaBookingApp.Application.Actors;
 using CinemaBookingApp.Application.Scheduler;
 using CinemaBookingApp.Application.ShowRooms;
 using CinemaBookingApp.Domain.Films;
@@ -8,109 +9,50 @@ namespace CinemaBookingAppTests.Application.Scheduler;
 public class ScheduleLineTests
 {
     [Fact]
-    public void Constructor_ShouldPreserveRoomAndDate()
+    public void DailyView_ShouldShowAllRoomsAndFilterByRoomAndDate()
     {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var date = new DateOnly(2030, 1, 1);
+        var schedule = new Schedule();
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var firstRoom = Room.GetOrCreate(Guid.NewGuid());
+        var secondRoom = Room.GetOrCreate(Guid.NewGuid());
+        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(90));
+        var start = DateTime.Today.AddDays(2).AddHours(12);
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var nextDayId = Guid.NewGuid();
+        var line = schedule.GetOrCreateScheduleLine(DateOnly.FromDateTime(start));
 
-        var line = new ScheduleLine(room, date);
+        manager.AddShowing(schedule, firstRoom, firstId, film, start.AddHours(3), 12.50m);
+        manager.AddShowing(schedule, secondRoom, secondId, film, start, 12.50m);
+        manager.AddShowing(schedule, firstRoom, nextDayId, film, start.AddDays(1), 12.50m);
 
-        line.Room.Should().BeSameAs(room);
-        line.Date.Should().Be(date);
-    }
-
-    [Fact]
-    public void Constructor_ShouldRejectNullRoom()
-    {
-        Action act = () => new ScheduleLine(null!, new DateOnly(2030, 1, 1));
-
-        act.Should().Throw<ArgumentNullException>().WithParameterName("room");
-    }
-
-    [Fact]
-    public void Constructor_ShouldRejectRoomWithShowingsFromAnotherDate()
-    {
-        var showing = CreateShowing(new DateTime(2030, 1, 2, 12, 0, 0));
-        var room = new Room(Guid.NewGuid(), new[] { showing });
-        Action act = () => new ScheduleLine(room, new DateOnly(2030, 1, 1));
-
-        act.Should().Throw<ArgumentException>();
-    }
-
-    [Fact]
-    public void AddShowing_ShouldAddItToRoom()
-    {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var line = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-        var showing = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
-
-        line.AddShowing(showing);
-
-        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
-        line.GetShowing(showing.ShowingId).Should().BeSameAs(showing);
-    }
-
-    [Fact]
-    public void AddShowing_ShouldRejectNull()
-    {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var line = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-        Action act = () => line.AddShowing(null!);
-
-        act.Should().Throw<ArgumentNullException>().WithParameterName("showing");
-        room.Showings.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void GetAllShowings_ShouldReturnRoomShowingsForItsDate()
-    {
-        var first = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
-        var second = CreateShowing(new DateTime(2030, 1, 1, 16, 0, 0));
-        var room = new Room(Guid.NewGuid(), new[] { first, second });
-        var line = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-
-        line.GetAllShowings().Should().BeEquivalentTo(new[] { first, second });
-    }
-
-    [Fact]
-    public void GetShowing_ShouldReturnNullForUnknownId()
-    {
-        var showing = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
-        var room = new Room(Guid.NewGuid(), new[] { showing });
-        var line = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-
+        line.Date.Should().Be(DateOnly.FromDateTime(start));
+        line.GetAllShowings().Select(showing => showing.ShowingId).Should().Equal(secondId, firstId);
+        line.GetShowingsForRoom(firstRoom.RoomNumber).Should().ContainSingle()
+            .Which.ShowingId.Should().Be(firstId);
+        line.GetShowingsForRoom(secondRoom.RoomNumber).Should().ContainSingle()
+            .Which.ShowingId.Should().Be(secondId);
+        line.GetShowingsForRoom(Guid.NewGuid()).Should().BeEmpty();
+        line.GetShowing(secondId).Should().NotBeNull();
+        line.GetShowing(nextDayId).Should().BeNull();
         line.GetShowing(Guid.NewGuid()).Should().BeNull();
     }
 
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(1)]
-    public void AddShowing_ShouldRejectShowingStartingOnAnotherDate(int days)
-    {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var line = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-        var showing = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0).AddDays(days));
-        Action act = () => line.AddShowing(showing);
-
-        act.Should().Throw<InvalidOperationException>();
-        room.Showings.Should().BeEmpty();
-    }
-
     [Fact]
-    public void AddShowing_ShouldAllowShowingEndingNextDay()
+    public void DailyView_ShouldIncludeShowingOnStartDateOnlyEvenWhenItEndsNextDay()
     {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var line = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-        var showing = CreateShowing(new DateTime(2030, 1, 1, 23, 0, 0));
+        var schedule = new Schedule();
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(120));
+        var start = DateTime.Today.AddDays(2).AddHours(23);
+        var id = Guid.NewGuid();
+        manager.AddShowing(schedule, room, id, film, start, 12.50m);
 
-        line.AddShowing(showing);
+        var firstDay = schedule.GetOrCreateScheduleLine(DateOnly.FromDateTime(start));
+        var secondDay = schedule.GetOrCreateScheduleLine(DateOnly.FromDateTime(start.AddDays(1)));
 
-        line.GetAllShowings().Should().ContainSingle().Which.Should().BeSameAs(showing);
-    }
-
-    private static Showing CreateShowing(DateTime start)
-    {
-        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        return new Showing(Guid.NewGuid(), film, start, 12.50m);
+        firstDay.GetAllShowings().Should().ContainSingle().Which.ShowingId.Should().Be(id);
+        secondDay.GetAllShowings().Should().BeEmpty();
     }
 }

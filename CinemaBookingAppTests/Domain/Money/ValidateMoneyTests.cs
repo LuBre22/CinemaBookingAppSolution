@@ -28,4 +28,18 @@ public class ValidateMoneyTests
 
         result.Should().BeFalse();
     }
+
+    [Fact]
+    public void IsTwoDecimals_ShouldRejectExtraTrailingDecimalPlaces()
+    {
+        ValidateMoney.IsTwoDecimals(12.500m).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsTwoDecimals_ShouldAcceptAmountsWithFewerThanTwoDecimalPlaces()
+    {
+        ValidateMoney.IsTwoDecimals(12m).Should().BeTrue();
+        ValidateMoney.IsTwoDecimals(12.5m).Should().BeTrue();
+        ValidateMoney.IsTwoDecimals(12.50m).Should().BeTrue();
+    }
 }

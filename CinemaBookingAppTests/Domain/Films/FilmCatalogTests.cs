@@ -76,6 +76,40 @@ public class FilmCatalogTests
     }
 
     [Fact]
+    public void AddMovie_ShouldReplaceMovieWithSameIdentifier()
+    {
+        var library = new FilmCatalog();
+        var id = Guid.NewGuid();
+        var replacement = new Film(id, "Second", Genre.Drama, TimeSpan.FromMinutes(100));
+        library.AddMovie(new Film(id, "First", Genre.Comedy, TimeSpan.FromMinutes(90)));
+        library.AddMovie(replacement);
+
+        library.GetAllMovies().Should().ContainSingle().Which.Should().BeSameAs(replacement);
+    }
+
+    [Fact]
+    public void AddMovie_ShouldRejectNull()
+    {
+        var library = new FilmCatalog();
+        Action act = () => library.AddMovie(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("movie");
+        library.GetAllMovies().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RemoveMovie_ShouldIgnoreUnknownIdentifier()
+    {
+        var library = new FilmCatalog();
+        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
+        library.AddMovie(film);
+
+        library.RemoveMovie(Guid.NewGuid());
+
+        library.GetAllMovies().Should().ContainSingle().Which.Should().BeSameAs(film);
+    }
+
+    [Fact]
     public void RemoveMovie_ShouldRemoveOnlyTheSpecifiedMovie()
     {
         var library = new FilmCatalog();

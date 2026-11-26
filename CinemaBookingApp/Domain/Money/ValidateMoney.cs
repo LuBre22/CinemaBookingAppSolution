@@ -9,6 +9,6 @@ public static class ValidateMoney
 
     public static bool IsTwoDecimals(decimal amount)
     {
-        return decimal.Round(amount, 2) == amount;
+        return ((decimal.GetBits(amount)[3] >> 16) & 0xFF) <= 2;
     }
 }

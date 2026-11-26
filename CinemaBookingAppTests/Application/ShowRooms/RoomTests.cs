@@ -7,67 +7,100 @@ namespace CinemaBookingAppTests.Application.ShowRooms;
 public class RoomTests
 {
     [Fact]
-    public void Constructor_ShouldCopyShowingsAndPreserveRoomNumber()
+    public void GetOrCreate_ShouldReturnSameRoomForSameId()
     {
         var id = Guid.NewGuid();
-        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        var showing = new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), 12.50m);
-        var showings = new List<Showing> { showing };
+        var room = Room.GetOrCreate(id);
 
-        var room = new Room(id, showings);
-        showings.Clear();
-
+        Room.GetOrCreate(id).Should().BeSameAs(room);
         room.RoomNumber.Should().Be(id);
-        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
-    }
-
-    [Fact]
-    public void Constructor_ShouldAllowAnEmptyShowingCollection()
-    {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-
         room.Showings.Should().BeEmpty();
     }
 
     [Fact]
-    public void Constructor_ShouldRejectEmptyRoomNumber()
+    public void GetOrCreate_ShouldReturnDifferentRoomsForDifferentIds()
     {
-        Action act = () => new Room(Guid.Empty, Array.Empty<Showing>());
+        Room.GetOrCreate(Guid.NewGuid()).Should().NotBeSameAs(Room.GetOrCreate(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void GetOrCreate_ShouldRejectEmptyRoomNumber()
+    {
+        Action act = () => Room.GetOrCreate(Guid.Empty);
 
         act.Should().Throw<ArgumentException>().WithParameterName("roomNumber");
     }
 
     [Fact]
-    public void Constructor_ShouldRejectNullShowings()
+    public async Task GetOrCreate_ShouldReturnSameRoomAcrossConcurrentCalls()
     {
-        Action act = () => new Room(Guid.NewGuid(), null!);
+        var id = Guid.NewGuid();
+        var rooms = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => Room.GetOrCreate(id))));
 
-        act.Should().Throw<ArgumentNullException>().WithParameterName("showings");
+        rooms.Should().OnlyContain(room => ReferenceEquals(room, rooms[0]));
     }
 
     [Fact]
-    public void Constructor_ShouldRejectNullShowingInCollection()
+    public void AddShowing_ShouldRetainShowingsAcrossDaysAndLookups()
     {
-        Action act = () => new Room(Guid.NewGuid(), new Showing[] { null! });
+        var id = Guid.NewGuid();
+        var room = Room.GetOrCreate(id);
+        var first = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
+        var second = CreateShowing(new DateTime(2030, 1, 2, 12, 0, 0));
 
-        act.Should().Throw<ArgumentException>().WithParameterName("showings");
+        room.AddShowing(first);
+        Room.GetOrCreate(id).AddShowing(second);
+
+        room.Showings.Should().Equal(first, second);
     }
 
     [Fact]
-    public void AddShowing_ShouldAddShowingToRoom()
+    public void Showings_ShouldNotAllowExternalModification()
     {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var showing = CreateShowing();
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var list = (ICollection<Showing>)room.Showings;
 
-        room.AddShowing(showing);
+        Action act = () => list.Add(CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0)));
 
-        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
+        act.Should().Throw<NotSupportedException>();
+        room.Showings.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-30)]
+    [InlineData(60)]
+    [InlineData(145)]
+    public void AddShowing_ShouldRejectOverlapOrInsufficientBuffer(int minutes)
+    {
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var start = new DateTime(2030, 1, 1, 12, 0, 0);
+        room.AddShowing(CreateShowing(start));
+
+        Action act = () => room.AddShowing(CreateShowing(start.AddMinutes(minutes)));
+
+        act.Should().Throw<InvalidOperationException>();
+        room.Showings.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(-146)]
+    [InlineData(146)]
+    public void AddShowing_ShouldAcceptThirtyMinuteBuffer(int minutes)
+    {
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var start = new DateTime(2030, 1, 1, 12, 0, 0);
+        room.AddShowing(CreateShowing(start));
+
+        room.AddShowing(CreateShowing(start.AddMinutes(minutes)));
+
+        room.Showings.Should().HaveCount(2);
     }
 
     [Fact]
     public void AddShowing_ShouldRejectNull()
     {
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var room = Room.GetOrCreate(Guid.NewGuid());
         Action act = () => room.AddShowing(null!);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("showing");
@@ -77,9 +110,11 @@ public class RoomTests
     [Fact]
     public void RemoveShowing_ShouldRemoveOnlyMatchingShowing()
     {
-        var removed = CreateShowing();
-        var remaining = CreateShowing();
-        var room = new Room(Guid.NewGuid(), new[] { removed, remaining });
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var removed = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
+        var remaining = CreateShowing(new DateTime(2030, 1, 2, 12, 0, 0));
+        room.AddShowing(removed);
+        room.AddShowing(remaining);
 
         room.RemoveShowing(removed.ShowingId);
 
@@ -89,17 +124,18 @@ public class RoomTests
     [Fact]
     public void RemoveShowing_ShouldLeaveRoomUnchangedForUnknownId()
     {
-        var showing = CreateShowing();
-        var room = new Room(Guid.NewGuid(), new[] { showing });
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var showing = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
+        room.AddShowing(showing);
 
         room.RemoveShowing(Guid.NewGuid());
 
         room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
     }
 
-    private static Showing CreateShowing()
+    private static Showing CreateShowing(DateTime start)
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        return new Showing(Guid.NewGuid(), film, new DateTime(2030, 1, 1, 12, 0, 0), 12.50m);
+        return new Showing(Guid.NewGuid(), film, start, 12.50m);
     }
 }

@@ -1,3 +1,4 @@
+using CinemaBookingApp.Application.Actors;
 using CinemaBookingApp.Application.Scheduler;
 using CinemaBookingApp.Application.ShowRooms;
 using CinemaBookingApp.Domain.Films;
@@ -8,44 +9,51 @@ namespace CinemaBookingAppTests.Application.Scheduler;
 public class ScheduleTests
 {
     [Fact]
-    public void AddScheduleEntry_ShouldMakeLineAvailableByRoomAndDate()
+    public void AddShowing_ShouldNotListShowingTwiceWhenRoomIsUsedRepeatedly()
     {
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var room = Room.GetOrCreate(Guid.NewGuid());
+        var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(60));
+        var start = DateTime.Today.AddDays(3).AddHours(10);
+        manager.AddShowing(schedule, room, Guid.NewGuid(), film, start, 10m);
+        manager.AddShowing(schedule, room, Guid.NewGuid(), film, start.AddHours(3), 10m);
+
+        schedule.GetScheduleLine(DateOnly.FromDateTime(start))!.GetAllShowings().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void ScheduleEntries_ShouldBeEmptyForNewSchedule()
+    {
+        new Schedule().ScheduleEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GetOrCreateScheduleLine_ShouldReturnOneLinePerDate()
+    {
+        var schedule = new Schedule();
         var date = new DateOnly(2030, 1, 1);
-        var line = new ScheduleLine(room, date);
+        var first = schedule.GetOrCreateScheduleLine(date);
+        var second = schedule.GetOrCreateScheduleLine(date.AddDays(1));
 
-        schedule.AddScheduleEntry(line);
-
-        schedule.GetScheduleLine(room.RoomNumber, date).Should().BeSameAs(line);
-        schedule.GetScheduleLine(Guid.NewGuid(), date).Should().BeNull();
-        schedule.GetScheduleLine(room.RoomNumber, date.AddDays(1)).Should().BeNull();
+        schedule.GetOrCreateScheduleLine(date).Should().BeSameAs(first);
+        schedule.GetScheduleLine(date).Should().BeSameAs(first);
+        schedule.GetScheduleLine(date.AddDays(1)).Should().BeSameAs(second);
+        schedule.GetScheduleLine(date.AddDays(2)).Should().BeNull();
+        schedule.ScheduleEntries.Should().HaveCount(2);
     }
 
     [Fact]
     public void RemoveScheduleEntry_ShouldRemoveOnlySpecifiedLine()
     {
         var schedule = new Schedule();
-        var room = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var first = new ScheduleLine(room, new DateOnly(2030, 1, 1));
-        var second = new ScheduleLine(new Room(room.RoomNumber, Array.Empty<Showing>()), new DateOnly(2030, 1, 2));
-        schedule.AddScheduleEntry(first);
-        schedule.AddScheduleEntry(second);
+        var first = schedule.GetOrCreateScheduleLine(new DateOnly(2030, 1, 1));
+        var second = schedule.GetOrCreateScheduleLine(new DateOnly(2030, 1, 2));
 
         schedule.RemoveScheduleEntry(first);
 
         schedule.ScheduleEntries.Should().ContainSingle().Which.Should().BeSameAs(second);
-        schedule.GetScheduleLine(room.RoomNumber, first.Date).Should().BeNull();
-    }
-
-    [Fact]
-    public void AddScheduleEntry_ShouldRejectNull()
-    {
-        var schedule = new Schedule();
-        Action act = () => schedule.AddScheduleEntry(null!);
-
-        act.Should().Throw<ArgumentNullException>().WithParameterName("scheduleLine");
-        schedule.ScheduleEntries.Should().BeEmpty();
+        schedule.GetScheduleLine(first.Date).Should().BeNull();
     }
 
     [Fact]
@@ -58,20 +66,20 @@ public class ScheduleTests
     }
 
     [Fact]
-    public void GetShowing_ShouldSearchAllScheduleLinesAndReturnNullForUnknownId()
+    public void GetShowing_ShouldSearchAllDatesAndReturnNullForUnknownId()
     {
         var schedule = new Schedule();
-        var firstRoom = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var secondRoom = new Room(Guid.NewGuid(), Array.Empty<Showing>());
-        var firstLine = new ScheduleLine(firstRoom, new DateOnly(2030, 1, 1));
-        var secondLine = new ScheduleLine(secondRoom, new DateOnly(2030, 1, 1));
+        var manager = new CinemaBookingApp.Application.Actors.Manager();
+        var room = Room.GetOrCreate(Guid.NewGuid());
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        var showing = new Showing(Guid.NewGuid(), film, new DateTime(2030, 1, 1, 12, 0, 0), 12.50m);
-        secondLine.AddShowing(showing);
-        schedule.AddScheduleEntry(firstLine);
-        schedule.AddScheduleEntry(secondLine);
+        var start = DateTime.Today.AddDays(2).AddHours(12);
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        manager.AddShowing(schedule, room, firstId, film, start, 12.50m);
+        manager.AddShowing(schedule, room, secondId, film, start.AddDays(1), 12.50m);
 
-        schedule.GetShowing(showing.ShowingId).Should().BeSameAs(showing);
+        schedule.GetShowing(firstId)!.ShowingId.Should().Be(firstId);
+        schedule.GetShowing(secondId)!.ShowingId.Should().Be(secondId);
         schedule.GetShowing(Guid.NewGuid()).Should().BeNull();
     }
 }

@@ -6,6 +6,7 @@ public sealed class FilmCatalog
     
     public void AddMovie(Film movie)
     {
+        ArgumentNullException.ThrowIfNull(movie);
         _movies[movie.MovieId] = movie;
     }
     public void RemoveMovie(Guid movieId)
