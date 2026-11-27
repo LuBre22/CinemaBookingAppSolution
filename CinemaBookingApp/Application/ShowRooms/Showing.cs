@@ -9,6 +9,7 @@ public sealed class Showing
     private readonly Film _film;
     private readonly DateTime _startingTime;
     private readonly DateTime _endingTime;
+    private bool _cancelled;
     public decimal TicketPrice { get; private set; }
     public int BookedSeats { get; private set; } = 0;
     
@@ -36,4 +37,22 @@ public sealed class Showing
     public Film Film => _film;
     public DateTime StartingTime => _startingTime;
     public DateTime EndingTime => _endingTime;
+    public FilmStatusCategories Status => GetStatus(DateTime.Now);
+
+    internal FilmStatusCategories GetStatus(DateTime now)
+    {
+        if (_cancelled)
+            return FilmStatusCategories.CANCELLED;
+        if (now < StartingTime)
+            return FilmStatusCategories.PLANNED;
+        return now < EndingTime ? FilmStatusCategories.RUNNING : FilmStatusCategories.OVER;
+    }
+
+    internal void Cancel()
+    {
+        if (Status != FilmStatusCategories.PLANNED)
+            throw new InvalidOperationException("Only planned showings can be cancelled.");
+
+        _cancelled = true;
+    }
 }

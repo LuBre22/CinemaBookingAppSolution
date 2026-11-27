@@ -8,7 +8,7 @@ public sealed class Room
 {
     private static readonly ConcurrentDictionary<Guid, Lazy<Room>> Rooms = new();
     private readonly List<Showing> _showings = new();
-    private readonly Dictionary<Showing, object> _registrations = new();
+    private readonly HashSet<Showing> _scheduledShowings = new();
     private readonly ReadOnlyCollection<Showing> _readOnlyShowings;
 
     private Room(Guid roomNumber, int capacity)
@@ -44,17 +44,18 @@ public sealed class Room
     public int Capacity { get; private set; }
     public IReadOnlyList<Showing> Showings => _readOnlyShowings;
 
-    public void AddShowing(Showing showing)
+    internal void AddShowing(Showing showing)
     {
         ArgumentNullException.ThrowIfNull(showing);
+        if (showing.Status == Domain.Films.FilmStatusCategories.CANCELLED)
+            throw new InvalidOperationException("A cancelled showing cannot be added to a room.");
         if (!FitsWithExistingShowings(showing))
             throw new InvalidOperationException("The showing overlaps with an existing showing in the room.");
 
         _showings.Add(showing);
-        _registrations.Add(showing, new object());
     }
 
-    public void RemoveShowing(Guid showingId)
+    internal void RemoveShowing(Guid showingId)
     {
         var showing = _showings.FirstOrDefault(s => s.ShowingId == showingId);
         if (showing != null)
@@ -63,13 +64,18 @@ public sealed class Room
 
     internal void RemoveShowing(Showing showing)
     {
+        if (_scheduledShowings.Contains(showing) && showing.Status != Domain.Films.FilmStatusCategories.CANCELLED)
+            throw new InvalidOperationException("A scheduled showing must be cancelled before removal.");
         _showings.Remove(showing);
-        _registrations.Remove(showing);
+        _scheduledShowings.Remove(showing);
     }
 
-    internal object? GetShowingRegistration(Showing showing)
+    internal void RegisterScheduledShowing(Showing showing)
     {
-        return _registrations.GetValueOrDefault(showing);
+        if (!_showings.Contains(showing))
+            throw new ArgumentException("The showing must belong to the room.", nameof(showing));
+        if (!_scheduledShowings.Add(showing))
+            throw new InvalidOperationException("The showing is already scheduled.");
     }
 
     private bool FitsWithExistingShowings(Showing proposed)

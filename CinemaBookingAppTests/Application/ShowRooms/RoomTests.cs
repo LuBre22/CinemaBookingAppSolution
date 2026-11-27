@@ -7,6 +7,14 @@ namespace CinemaBookingAppTests.Application.ShowRooms;
 public class RoomTests
 {
     [Fact]
+    public void ShowingMutations_ShouldNotBePublic()
+    {
+        typeof(Room).GetMethods()
+            .Select(method => method.Name)
+            .Should().NotContain(new[] { "AddShowing", "RemoveShowing" });
+    }
+
+    [Fact]
     public void GetOrCreate_WithCapacity_ShouldCreateRoomWithCapacity()
     {
         var room = Room.GetOrCreate(Guid.NewGuid(), 100);
@@ -163,6 +171,45 @@ public class RoomTests
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("showing");
         room.Showings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AddShowing_ShouldRejectCancelledShowing()
+    {
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var showing = CreateShowing(DateTime.Today.AddDays(2));
+        showing.Cancel();
+
+        Action act = () => room.AddShowing(showing);
+
+        act.Should().Throw<InvalidOperationException>();
+        room.Showings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RegisterScheduledShowing_ShouldRejectShowingNotInRoom()
+    {
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var showing = CreateShowing(DateTime.Today.AddDays(2));
+
+        Action act = () => room.RegisterScheduledShowing(showing);
+
+        act.Should().Throw<ArgumentException>().WithParameterName("showing");
+        room.Showings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RegisterScheduledShowing_ShouldRejectDuplicateRegistration()
+    {
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var showing = CreateShowing(DateTime.Today.AddDays(2));
+        room.AddShowing(showing);
+        room.RegisterScheduledShowing(showing);
+
+        Action act = () => room.RegisterScheduledShowing(showing);
+
+        act.Should().Throw<InvalidOperationException>();
+        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
     }
 
     [Fact]

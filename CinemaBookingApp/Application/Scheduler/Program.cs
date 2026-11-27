@@ -1,5 +1,5 @@
 using CinemaBookingApp.Application.ShowRooms;
-using CinemaBookingApp.Domain.Time;
+using CinemaBookingApp.Domain.Films;
 
 namespace CinemaBookingApp.Application.Scheduler;
 
@@ -24,10 +24,9 @@ public static class Program
         ArgumentNullException.ThrowIfNull(schedule);
 
         return schedule.ScheduleEntries
-            .SelectMany(line => line.GetShowingsWithRooms())
             .Where(item => item.Showing.StartingTime >= startingDate
                 && item.Showing.StartingTime <= endingDate
-                && StartingTime.isFutureTime(item.Showing.StartingTime))
+                && item.Showing.Status == FilmStatusCategories.PLANNED)
             .GroupBy(item => item.Showing.Film.MovieId)
             .SelectMany(group => group.OrderBy(item => item.Showing.StartingTime))
             .Select(item => new ProgramLine(

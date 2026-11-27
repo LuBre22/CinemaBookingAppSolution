@@ -28,21 +28,18 @@ public sealed class Manager
             throw new InvalidOperationException("The showing must start in the future.");
 
         var showing = new Showing(showingId, catalogFilm, startingTime, ticketPrice);
+        schedule.EnsureShowingIdAvailable(showingId);
         room.AddShowing(showing);
-        schedule.GetOrCreateScheduleLine(DateOnly.FromDateTime(startingTime)).AddShowing(room, showing);
+        schedule.AddShowing(room, showing);
     }
 
     public static void CancelShowing(Schedule schedule, Guid showingId)
     {
         ArgumentNullException.ThrowIfNull(schedule);
-        var scheduleLine = schedule.ScheduleEntries.FirstOrDefault(entry => entry.FindShowing(showingId) != null)
+        var scheduleLine = schedule.ScheduleEntries.FirstOrDefault(entry => entry.Showing.ShowingId == showingId)
             ?? throw new InvalidOperationException("The showing does not exist in any schedule line.");
 
-        var (room, showing) = scheduleLine.FindShowing(showingId)!.Value;
-        if (!StartingTime.isFutureTime(showing.StartingTime))
-            throw new InvalidOperationException("Cannot cancel a showing that has already started.");
-
-        room.RemoveShowing(showing);
-        scheduleLine.RemoveShowing(showing);
+        scheduleLine.Showing.Cancel();
+        schedule.RemoveScheduleEntry(scheduleLine);
     }
 }

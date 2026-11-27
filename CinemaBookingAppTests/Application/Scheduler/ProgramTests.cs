@@ -19,7 +19,7 @@ public class ProgramTests
         var start = DateTime.Today.AddDays(3).AddHours(12);
         var past = new Showing(Guid.NewGuid(), firstFilm, DateTime.Today.AddDays(-2), 10m);
         room.AddShowing(past);
-        schedule.GetOrCreateScheduleLine(DateOnly.FromDateTime(past.StartingTime)).AddShowing(room, past);
+        schedule.AddShowing(room, past);
 
         var firstLate = Guid.NewGuid();
         var firstEarly = Guid.NewGuid();
@@ -49,8 +49,12 @@ public class ProgramTests
             id => id.Should().Be(secondLate));
         result.Select(line => line.FilmId).Should().Equal(
             firstFilm.MovieId, firstFilm.MovieId, secondFilm.MovieId, secondFilm.MovieId);
-        result.Single(line => line.ShowingId == firstEarly).Room.Should().BeSameAs(otherRoom);
-        result.Single(line => line.ShowingId == firstEarly).AvailableSeats.Should().Be(80);
+        var firstLine = result.Single(line => line.ShowingId == firstEarly);
+        firstLine.Title.Should().Be(firstFilm.Title);
+        firstLine.StartTime.Should().Be(start);
+        firstLine.Duration.Should().Be(firstFilm.Duration);
+        firstLine.Room.Should().BeSameAs(otherRoom);
+        firstLine.AvailableSeats.Should().Be(80);
     }
 
     [Fact]
@@ -90,7 +94,7 @@ public class ProgramTests
     }
 
     [Fact]
-    public void GetProgram_ShouldExcludeShowingsOnDatesWithoutScheduleLines()
+    public void GetProgram_ShouldExcludeCancelledShowings()
     {
         var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
@@ -100,11 +104,9 @@ public class ProgramTests
         var start = DateTime.Today.AddDays(3).AddHours(12);
         var scheduledId = Guid.NewGuid();
         var removedLineId = Guid.NewGuid();
-        var directShowing = new Showing(Guid.NewGuid(), film, start.AddDays(2), 10m);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, scheduledId, film, start, 10m);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, removedLineId, film, start.AddDays(1), 10m);
-        room.AddShowing(directShowing);
-        schedule.RemoveScheduleEntry(schedule.GetScheduleLine(DateOnly.FromDateTime(start.AddDays(1)))!);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, removedLineId);
 
         var result = CinemaProgram.GetProgram(schedule, start, start.AddDays(3));
 
@@ -112,7 +114,7 @@ public class ProgramTests
     }
 
     [Fact]
-    public void GetProgram_ShouldExcludeDirectRoomShowingOnScheduledDate()
+    public void GetProgram_ShouldExcludeInternallyAddedRoomShowingOnScheduledDate()
     {
         var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
@@ -153,7 +155,7 @@ public class ProgramTests
     }
 
     [Fact]
-    public void GetProgram_ShouldNotRestoreMembershipWhenRoomShowingIsRemovedAndReadded()
+    public void GetProgram_ShouldRetainScheduledShowingWhenDirectRoomRemovalIsRejected()
     {
         var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
@@ -165,15 +167,16 @@ public class ProgramTests
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, id, film, start, 10m);
         var showing = room.Showings.Single();
 
-        room.RemoveShowing(id);
-        room.AddShowing(showing);
+        Action act = () => room.RemoveShowing(id);
 
-        schedule.GetShowing(id).Should().BeNull();
-        CinemaProgram.GetProgram(schedule, start, start.AddDays(1)).Should().BeEmpty();
+        act.Should().Throw<InvalidOperationException>();
+        schedule.GetShowing(id).Should().BeSameAs(showing);
+        CinemaProgram.GetProgram(schedule, start, start.AddDays(1))
+            .Should().ContainSingle().Which.ShowingId.Should().Be(id);
     }
 
     [Fact]
-    public void GetProgram_ShouldPreserveRoomWhenShowingsShareAnId()
+    public void GetProgram_ShouldPreserveEachShowingsRoom()
     {
         var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var otherRoom = Room.GetOrCreate(Guid.NewGuid(), 80);
@@ -182,9 +185,8 @@ public class ProgramTests
         catalog.AddMovie(film);
         var schedule = new Schedule();
         var start = DateTime.Today.AddDays(3).AddHours(12);
-        var id = Guid.NewGuid();
-        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, id, film, start, 10m);
-        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, otherRoom, id, film, start.AddHours(2), 10m);
+        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, Guid.NewGuid(), film, start, 10m);
+        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, otherRoom, Guid.NewGuid(), film, start.AddHours(2), 10m);
 
         var result = CinemaProgram.GetProgram(schedule, start, start.AddDays(1));
 

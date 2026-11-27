@@ -6,6 +6,12 @@ namespace CinemaBookingAppTests.Domain.Money;
 public class ValidateMoneyTests
 {
     [Fact]
+    public void IsPositive_ShouldReturnTrueForPositiveAmount()
+    {
+        ValidateMoney.IsPositive(0.01m).Should().BeTrue();
+    }
+
+    [Fact]
     public void IsPositive_ShouldReturnFalseForZero()
     {
         var result = ValidateMoney.IsPositive(0m);
