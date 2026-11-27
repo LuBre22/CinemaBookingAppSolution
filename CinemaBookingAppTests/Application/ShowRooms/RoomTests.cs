@@ -7,10 +7,68 @@ namespace CinemaBookingAppTests.Application.ShowRooms;
 public class RoomTests
 {
     [Fact]
+    public void GetOrCreate_WithCapacity_ShouldCreateRoomWithCapacity()
+    {
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+
+        room.Capacity.Should().Be(100);
+    }
+
+    [Fact]
+    public void GetOrCreate_WithCapacity_ShouldUpdateExistingRoomWithoutLosingShowings()
+    {
+        var id = Guid.NewGuid();
+        var room = Room.GetOrCreate(id, 100);
+        var showing = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
+        room.AddShowing(showing);
+
+        var updated = Room.GetOrCreate(id, 150);
+
+        updated.Should().BeSameAs(room);
+        room.Capacity.Should().Be(150);
+        room.Showings.Should().ContainSingle().Which.Should().BeSameAs(showing);
+        Room.GetOrCreate(id).Capacity.Should().Be(150);
+    }
+
+    [Fact]
+    public void GetOrCreate_WithoutCapacity_ShouldRejectUnknownRoom()
+    {
+        var id = Guid.NewGuid();
+        Action act = () => Room.GetOrCreate(id);
+
+        act.Should().Throw<KeyNotFoundException>();
+        Room.GetOrCreate(id, 100).Capacity.Should().Be(100);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void GetOrCreate_WithCapacity_ShouldRejectNonPositiveCapacity(int capacity)
+    {
+        var id = Guid.NewGuid();
+        var room = Room.GetOrCreate(id, 100);
+
+        Action update = () => Room.GetOrCreate(id, capacity);
+        Action create = () => Room.GetOrCreate(Guid.NewGuid(), capacity);
+
+        update.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("capacity");
+        create.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("capacity");
+        room.Capacity.Should().Be(100);
+    }
+
+    [Fact]
+    public void GetOrCreate_WithCapacity_ShouldRejectEmptyRoomNumber()
+    {
+        Action act = () => Room.GetOrCreate(Guid.Empty, 100);
+
+        act.Should().Throw<ArgumentException>().WithParameterName("roomNumber");
+    }
+
+    [Fact]
     public void GetOrCreate_ShouldReturnSameRoomForSameId()
     {
         var id = Guid.NewGuid();
-        var room = Room.GetOrCreate(id);
+        var room = Room.GetOrCreate(id, 100);
 
         Room.GetOrCreate(id).Should().BeSameAs(room);
         room.RoomNumber.Should().Be(id);
@@ -20,7 +78,7 @@ public class RoomTests
     [Fact]
     public void GetOrCreate_ShouldReturnDifferentRoomsForDifferentIds()
     {
-        Room.GetOrCreate(Guid.NewGuid()).Should().NotBeSameAs(Room.GetOrCreate(Guid.NewGuid()));
+        Room.GetOrCreate(Guid.NewGuid(), 100).Should().NotBeSameAs(Room.GetOrCreate(Guid.NewGuid(), 100));
     }
 
     [Fact]
@@ -35,7 +93,7 @@ public class RoomTests
     public async Task GetOrCreate_ShouldReturnSameRoomAcrossConcurrentCalls()
     {
         var id = Guid.NewGuid();
-        var rooms = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => Room.GetOrCreate(id))));
+        var rooms = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => Room.GetOrCreate(id, 100))));
 
         rooms.Should().OnlyContain(room => ReferenceEquals(room, rooms[0]));
     }
@@ -44,7 +102,7 @@ public class RoomTests
     public void AddShowing_ShouldRetainShowingsAcrossDaysAndLookups()
     {
         var id = Guid.NewGuid();
-        var room = Room.GetOrCreate(id);
+        var room = Room.GetOrCreate(id, 100);
         var first = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
         var second = CreateShowing(new DateTime(2030, 1, 2, 12, 0, 0));
 
@@ -57,7 +115,7 @@ public class RoomTests
     [Fact]
     public void Showings_ShouldNotAllowExternalModification()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var list = (ICollection<Showing>)room.Showings;
 
         Action act = () => list.Add(CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0)));
@@ -73,7 +131,7 @@ public class RoomTests
     [InlineData(145)]
     public void AddShowing_ShouldRejectOverlapOrInsufficientBuffer(int minutes)
     {
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var start = new DateTime(2030, 1, 1, 12, 0, 0);
         room.AddShowing(CreateShowing(start));
 
@@ -88,7 +146,7 @@ public class RoomTests
     [InlineData(146)]
     public void AddShowing_ShouldAcceptThirtyMinuteBuffer(int minutes)
     {
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var start = new DateTime(2030, 1, 1, 12, 0, 0);
         room.AddShowing(CreateShowing(start));
 
@@ -100,7 +158,7 @@ public class RoomTests
     [Fact]
     public void AddShowing_ShouldRejectNull()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         Action act = () => room.AddShowing(null!);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("showing");
@@ -110,7 +168,7 @@ public class RoomTests
     [Fact]
     public void RemoveShowing_ShouldRemoveOnlyMatchingShowing()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var removed = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
         var remaining = CreateShowing(new DateTime(2030, 1, 2, 12, 0, 0));
         room.AddShowing(removed);
@@ -124,7 +182,7 @@ public class RoomTests
     [Fact]
     public void RemoveShowing_ShouldLeaveRoomUnchangedForUnknownId()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var showing = CreateShowing(new DateTime(2030, 1, 1, 12, 0, 0));
         room.AddShowing(showing);
 

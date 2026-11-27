@@ -9,7 +9,8 @@ public sealed class Showing
     private readonly Film _film;
     private readonly DateTime _startingTime;
     private readonly DateTime _endingTime;
-    private readonly Decimal _ticketPrice;
+    public decimal TicketPrice { get; private set; }
+    public int BookedSeats { get; private set; } = 0;
     
     public Showing(Guid showingId, Film film, DateTime startingTime, Decimal ticketPrice)
     {
@@ -27,7 +28,7 @@ public sealed class Showing
         _showingId = showingId;
         _film = film;
         _startingTime = startingTime;
-        _ticketPrice = ticketPrice;
+        TicketPrice = ticketPrice;
         _endingTime = startingTime.Add(film.Duration);
     }
     
@@ -35,5 +36,4 @@ public sealed class Showing
     public Film Film => _film;
     public DateTime StartingTime => _startingTime;
     public DateTime EndingTime => _endingTime;
-    public Decimal TicketPrice => _ticketPrice;
 }

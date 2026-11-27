@@ -12,12 +12,13 @@ public class ScheduleTests
     public void AddShowing_ShouldNotListShowingTwiceWhenRoomIsUsedRepeatedly()
     {
         var schedule = new Schedule();
-        var manager = new CinemaBookingApp.Application.Actors.Manager();
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(60));
         var start = DateTime.Today.AddDays(3).AddHours(10);
-        manager.AddShowing(schedule, room, Guid.NewGuid(), film, start, 10m);
-        manager.AddShowing(schedule, room, Guid.NewGuid(), film, start.AddHours(3), 10m);
+        var catalog = new FilmCatalog();
+        catalog.AddMovie(film);
+        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, Guid.NewGuid(), film, start, 10m);
+        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, Guid.NewGuid(), film, start.AddHours(3), 10m);
 
         schedule.GetScheduleLine(DateOnly.FromDateTime(start))!.GetAllShowings().Should().HaveCount(2);
     }
@@ -69,14 +70,15 @@ public class ScheduleTests
     public void GetShowing_ShouldSearchAllDatesAndReturnNullForUnknownId()
     {
         var schedule = new Schedule();
-        var manager = new CinemaBookingApp.Application.Actors.Manager();
-        var room = Room.GetOrCreate(Guid.NewGuid());
+        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var firstId = Guid.NewGuid();
         var secondId = Guid.NewGuid();
-        manager.AddShowing(schedule, room, firstId, film, start, 12.50m);
-        manager.AddShowing(schedule, room, secondId, film, start.AddDays(1), 12.50m);
+        var catalog = new FilmCatalog();
+        catalog.AddMovie(film);
+        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, firstId, film, start, 12.50m);
+        CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, secondId, film, start.AddDays(1), 12.50m);
 
         schedule.GetShowing(firstId)!.ShowingId.Should().Be(firstId);
         schedule.GetShowing(secondId)!.ShowingId.Should().Be(secondId);

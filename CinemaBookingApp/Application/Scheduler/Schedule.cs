@@ -4,7 +4,6 @@ namespace CinemaBookingApp.Application.Scheduler;
 
 public sealed class Schedule
 {
-    private readonly List<Room> _rooms = new();
     private readonly List<ScheduleLine> _entries = new();
 
     public IReadOnlyList<ScheduleLine> ScheduleEntries => _entries.AsReadOnly();
@@ -15,7 +14,7 @@ public sealed class Schedule
         if (existing != null)
             return existing;
 
-        var line = new ScheduleLine(date, _rooms.AsReadOnly());
+        var line = new ScheduleLine(date);
         _entries.Add(line);
         return line;
     }
@@ -37,9 +36,4 @@ public sealed class Schedule
             .FirstOrDefault(showing => showing != null);
     }
 
-    internal void RegisterRoom(Room room)
-    {
-        if (!_rooms.Contains(room))
-            _rooms.Add(room);
-    }
 }
