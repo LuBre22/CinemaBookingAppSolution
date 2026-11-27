@@ -1,6 +1,7 @@
 using CinemaBookingApp.Domain.Films;
 using CinemaBookingApp.Domain.Money;
 using System.Collections.ObjectModel;
+using CinemaBookingApp.Application.Booking;
 
 namespace CinemaBookingApp.Application.ShowRooms;
 
@@ -11,6 +12,8 @@ public sealed class Showing
     private readonly DateTime _startingTime;
     private readonly DateTime _endingTime;
     private bool _cancelled;
+    private readonly object _seatLock = new();
+    private readonly Dictionary<string, SeatAvailabilityTypes> _seats;
     public decimal TicketPrice { get; private set; }
     public Room Room { get; }
     public IReadOnlyDictionary<string, SeatAvailabilityTypes> Seats { get; }
@@ -35,8 +38,8 @@ public sealed class Showing
         TicketPrice = ticketPrice;
         _endingTime = startingTime.Add(film.Duration);
         Room = room;
-        Seats = new ReadOnlyDictionary<string, SeatAvailabilityTypes>(
-            room.SeatIds.ToDictionary(id => id, _ => SeatAvailabilityTypes.AVAILABLE, StringComparer.Ordinal));
+        _seats = room.SeatIds.ToDictionary(id => id, _ => SeatAvailabilityTypes.AVAILABLE, StringComparer.Ordinal);
+        Seats = new ReadOnlyDictionary<string, SeatAvailabilityTypes>(_seats);
     }
     
     public Guid ShowingId => _showingId;
@@ -56,9 +59,39 @@ public sealed class Showing
 
     internal void Cancel()
     {
-        if (Status != FilmStatusCategories.PLANNED)
-            throw new InvalidOperationException("Only planned showings can be cancelled.");
+        lock (_seatLock)
+        {
+            if (Status != FilmStatusCategories.PLANNED)
+                throw new InvalidOperationException("Only planned showings can be cancelled.");
 
-        _cancelled = true;
+            _cancelled = true;
+        }
+    }
+
+    internal bool TryReserveSeats(IReadOnlyList<string> seatNumbers)
+    {
+        lock (_seatLock)
+        {
+            if (Status != FilmStatusCategories.PLANNED || seatNumbers.Count == 0
+                || !BookingTool.AreSeatsAvailable(_seats, seatNumbers))
+                return false;
+
+            foreach (var seat in seatNumbers)
+                _seats[seat] = SeatAvailabilityTypes.OCCUPIED;
+
+            return true;
+        }
+    }
+
+    internal void ReleaseSeatsBeforeStart(IReadOnlyList<string> seatNumbers)
+    {
+        lock (_seatLock)
+        {
+            if (DateTime.Now >= StartingTime)
+                throw new InvalidOperationException("Bookings cannot be cancelled after the showing has started.");
+
+            foreach (var seat in seatNumbers)
+                _seats[seat] = SeatAvailabilityTypes.AVAILABLE;
+        }
     }
 }

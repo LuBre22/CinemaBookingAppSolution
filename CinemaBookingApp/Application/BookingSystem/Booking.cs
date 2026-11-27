@@ -10,6 +10,7 @@ public sealed class Booking
         ArgumentNullException.ThrowIfNull(seatNumbers);
 
         var seats = seatNumbers.ToArray();
+        Showing = showing;
         ShowingId = showing.ShowingId;
         CustomerId = customerId;
         SeatNumbers = Array.AsReadOnly(seats);
@@ -21,5 +22,29 @@ public sealed class Booking
     public Guid CustomerId { get; }
     public IReadOnlyList<string> SeatNumbers { get; }
     public decimal Price { get; }
-    public BookingStatusTypes Status { get; }
+    public BookingStatusTypes Status { get; private set; }
+    internal Showing Showing { get; }
+    internal object SyncRoot { get; } = new();
+    internal bool IsCommitted { get; private set; }
+
+    internal void MarkCommitted()
+    {
+        IsCommitted = true;
+    }
+
+    internal void DenyReservation()
+    {
+        Status = BookingStatusTypes.DENIED;
+    }
+
+    internal void ApplyPaymentDecision(bool approved)
+    {
+        lock (SyncRoot)
+        {
+            if (Status != BookingStatusTypes.RECEIVED)
+                throw new InvalidOperationException("Only received bookings can have their payment verified.");
+
+            Status = approved ? BookingStatusTypes.CONFIRMED : BookingStatusTypes.DENIED;
+        }
+    }
 }

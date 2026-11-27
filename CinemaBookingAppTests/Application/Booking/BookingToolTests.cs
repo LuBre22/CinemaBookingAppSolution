@@ -1,6 +1,7 @@
 using CinemaBookingApp.Application.Booking;
 using CinemaBookingApp.Application.Scheduler;
 using CinemaBookingApp.Application.ShowRooms;
+using CinemaBookingApp.Domain.Authentification;
 using CinemaBookingApp.Domain.Films;
 using FluentAssertions;
 using CinemaManager = CinemaBookingApp.Application.Actors.Manager;
@@ -15,7 +16,7 @@ public class BookingToolTests
         var (schedule, showing, customerId) = CreateScheduledShowing();
         var seats = new List<string> { "A1", "A2" };
 
-        var result = BookingTool.Receive(schedule, showing.ShowingId, customerId, seats);
+        var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, seats);
         seats.Clear();
 
         result.Status.Should().Be(BookingStatusTypes.RECEIVED);
@@ -32,7 +33,7 @@ public class BookingToolTests
     [Fact]
     public void Receive_ShouldDenyUnknownShowing()
     {
-        var result = BookingTool.Receive(new Schedule(), Guid.NewGuid(), Guid.NewGuid(), new[] { "A1" });
+        var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), new Schedule(), Guid.NewGuid(), Guid.NewGuid(), new[] { "A1" });
 
         result.Status.Should().Be(BookingStatusTypes.DENIED);
         result.DenialReason.Should().Be(BookingDenialReason.ShowingNotFound);
@@ -45,7 +46,7 @@ public class BookingToolTests
         var (schedule, showing, customerId) = CreateScheduledShowing();
         CinemaManager.CancelShowing(schedule, showing.ShowingId);
 
-        var result = BookingTool.Receive(schedule, showing.ShowingId, customerId, new[] { "A1" });
+        var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, new[] { "A1" });
 
         result.Status.Should().Be(BookingStatusTypes.DENIED);
         result.DenialReason.Should().Be(BookingDenialReason.ShowingNotFound);
@@ -64,7 +65,7 @@ public class BookingToolTests
         room.AddShowing(showing);
         schedule.AddShowing(room, showing);
 
-        var result = BookingTool.Receive(schedule, showing.ShowingId, Guid.NewGuid(), new[] { "A1" });
+        var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, Guid.NewGuid(), new[] { "A1" });
 
         result.Status.Should().Be(BookingStatusTypes.DENIED);
         result.DenialReason.Should().Be(BookingDenialReason.ShowingNotBookable);
@@ -77,8 +78,8 @@ public class BookingToolTests
     {
         var (schedule, showing, customerId) = CreateScheduledShowing();
 
-        var missing = BookingTool.Receive(schedule, showing.ShowingId, customerId, null);
-        var empty = BookingTool.Receive(schedule, showing.ShowingId, customerId, Array.Empty<string>());
+        var missing = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, null);
+        var empty = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, Array.Empty<string>());
 
         foreach (var result in new[] { missing, empty })
         {
@@ -96,7 +97,7 @@ public class BookingToolTests
     {
         var (schedule, showing, customerId) = CreateScheduledShowing();
 
-        var result = BookingTool.Receive(schedule, showing.ShowingId, customerId, new[] { "A1", invalidSeat! });
+        var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, new[] { "A1", invalidSeat! });
 
         result.Status.Should().Be(BookingStatusTypes.DENIED);
         result.DenialReason.Should().Be(BookingDenialReason.InvalidOrUnavailableSeat);
@@ -109,7 +110,7 @@ public class BookingToolTests
     {
         var (schedule, showing, customerId) = CreateScheduledShowing();
 
-        var result = BookingTool.Receive(schedule, showing.ShowingId, customerId, new[] { "A1", "A1" });
+        var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, new[] { "A1", "A1" });
 
         result.Status.Should().Be(BookingStatusTypes.DENIED);
         result.DenialReason.Should().Be(BookingDenialReason.InvalidOrUnavailableSeat);
@@ -135,7 +136,7 @@ public class BookingToolTests
     [Fact]
     public void Receive_ShouldRejectNullSchedule()
     {
-        Action act = () => BookingTool.Receive(null!, Guid.NewGuid(), Guid.NewGuid(), new[] { "A1" });
+        Action act = () => BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), null!, Guid.NewGuid(), Guid.NewGuid(), new[] { "A1" });
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("schedule");
     }

@@ -4,12 +4,13 @@ public sealed class BookingResult
 {
     private BookingResult(BookingStatusTypes status, Booking? booking, BookingDenialReason? denialReason)
     {
-        Status = status;
+        _status = status;
         Booking = booking;
         DenialReason = denialReason;
     }
 
-    public BookingStatusTypes Status { get; }
+    private readonly BookingStatusTypes _status;
+    public BookingStatusTypes Status => Booking?.Status ?? _status;
     public Booking? Booking { get; }
     public BookingDenialReason? DenialReason { get; }
 
