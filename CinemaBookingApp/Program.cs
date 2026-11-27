@@ -1,9 +1,8 @@
+using CinemaBookingApp.Cli;
+
 namespace CinemaBookingApp;
 
-public class Program
+public static class Program
 {
-    public static void Main(string[] args)
-    {
-        
-    }
+    public static void Main(string[] args) => new CinemaConsole(Console.In, Console.Out).Run();
 }
