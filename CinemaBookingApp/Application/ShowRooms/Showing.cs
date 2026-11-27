@@ -2,6 +2,7 @@ using CinemaBookingApp.Domain.Films;
 using CinemaBookingApp.Domain.Money;
 using System.Collections.ObjectModel;
 using CinemaBookingApp.Application.Booking;
+using CinemaBooking = CinemaBookingApp.Application.Booking.Booking;
 
 namespace CinemaBookingApp.Application.ShowRooms;
 
@@ -12,8 +13,9 @@ public sealed class Showing
     private readonly DateTime _startingTime;
     private readonly DateTime _endingTime;
     private bool _cancelled;
-    private readonly object _seatLock = new();
+    internal object SyncRoot { get; } = new();
     private readonly Dictionary<string, SeatAvailabilityTypes> _seats;
+    private readonly List<CinemaBooking> _bookings = new();
     public decimal TicketPrice { get; private set; }
     public Room Room { get; }
     public IReadOnlyDictionary<string, SeatAvailabilityTypes> Seats { get; }
@@ -59,7 +61,7 @@ public sealed class Showing
 
     internal void Cancel()
     {
-        lock (_seatLock)
+        lock (SyncRoot)
         {
             if (Status != FilmStatusCategories.PLANNED)
                 throw new InvalidOperationException("Only planned showings can be cancelled.");
@@ -70,7 +72,7 @@ public sealed class Showing
 
     internal bool TryReserveSeats(IReadOnlyList<string> seatNumbers)
     {
-        lock (_seatLock)
+        lock (SyncRoot)
         {
             if (Status != FilmStatusCategories.PLANNED || seatNumbers.Count == 0
                 || !BookingTool.AreSeatsAvailable(_seats, seatNumbers))
@@ -83,15 +85,26 @@ public sealed class Showing
         }
     }
 
-    internal void ReleaseSeatsBeforeStart(IReadOnlyList<string> seatNumbers)
+    internal void ReleaseSeats(IReadOnlyList<string> seatNumbers)
     {
-        lock (_seatLock)
+        lock (SyncRoot)
         {
-            if (DateTime.Now >= StartingTime)
-                throw new InvalidOperationException("Bookings cannot be cancelled after the showing has started.");
-
             foreach (var seat in seatNumbers)
                 _seats[seat] = SeatAvailabilityTypes.AVAILABLE;
         }
     }
+
+    internal void RegisterBooking(CinemaBooking booking)
+    {
+        lock (SyncRoot)
+        {
+            if (Status == FilmStatusCategories.CANCELLED &&
+                booking.Status is BookingStatusTypes.RECEIVED or BookingStatusTypes.CONFIRMED)
+                throw new InvalidOperationException("Active bookings cannot be added to a cancelled showing.");
+            if (!_bookings.Contains(booking))
+                _bookings.Add(booking);
+        }
+    }
+
+    internal IReadOnlyList<CinemaBooking> Bookings => _bookings;
 }

@@ -19,14 +19,13 @@ public class CancelBookingTests
         var (schedule, showing) = CreateShowing(DateTime.Now.AddDays(2));
         var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, Guid.NewGuid(), new[] { "A1", "A2" });
         var booking = result.Booking!;
-        BookingTool.VerifyPayment(booking, new ExternalPaymentSystem(true));
-        BookingTool.CommitBooking(schedule, booking);
+        BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
         var other = ReceiveAndCommit(schedule, showing, "A3");
 
-        BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true));
+        BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
 
-        booking.Status.Should().Be(BookingStatusTypes.DENIED);
-        result.Status.Should().Be(BookingStatusTypes.DENIED);
+        booking.Status.Should().Be(BookingStatusTypes.CANCELLED);
+        result.Status.Should().Be(BookingStatusTypes.CANCELLED);
         other.Status.Should().Be(BookingStatusTypes.CONFIRMED);
         showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.AVAILABLE);
         showing.Seats["A2"].Should().Be(SeatAvailabilityTypes.AVAILABLE);
@@ -37,18 +36,16 @@ public class CancelBookingTests
             .Should().Be(BookingStatusTypes.RECEIVED);
     }
 
-    [Theory]
-    [InlineData(BookingStatusTypes.RECEIVED)]
-    [InlineData(BookingStatusTypes.CONFIRMED)]
-    public void CancelBooking_UncommittedBookingDoesNotReleaseAnotherBookingsSeat(BookingStatusTypes status)
+    [Fact]
+    public void CancelBooking_UncommittedConfirmedBookingDoesNotReleaseAnotherBookingsSeat()
     {
         var (schedule, showing) = CreateShowing(DateTime.Now.AddDays(2));
-        var pending = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, status);
+        var pending = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, BookingStatusTypes.CONFIRMED);
         var owner = ReceiveAndCommit(schedule, showing, "A1");
 
-        BookingTool.CancelBooking(pending, pending.CustomerId, new ExternalAuthenticator(true));
+        BookingTool.CancelBooking(pending, pending.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
 
-        pending.Status.Should().Be(BookingStatusTypes.DENIED);
+        pending.Status.Should().Be(BookingStatusTypes.CANCELLED);
         owner.Status.Should().Be(BookingStatusTypes.CONFIRMED);
         showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.OCCUPIED);
     }
@@ -63,7 +60,7 @@ public class CancelBookingTests
         var booking = ReceiveAndCommit(schedule, showing, "A1");
         var customer = matches ? booking.CustomerId : Guid.NewGuid();
 
-        Action act = () => BookingTool.CancelBooking(booking, customer, new ExternalAuthenticator(approved));
+        Action act = () => BookingTool.CancelBooking(booking, customer, new ExternalAuthenticator(approved), new ExternalPaymentSystem(true));
 
         act.Should().Throw<UnauthorizedAccessException>();
         booking.Status.Should().Be(BookingStatusTypes.CONFIRMED);
@@ -73,11 +70,12 @@ public class CancelBookingTests
     [Theory]
     [InlineData(BookingStatusTypes.DENIED)]
     [InlineData(BookingStatusTypes.CANCELLED)]
+    [InlineData(BookingStatusTypes.RECEIVED)]
     public void CancelBooking_RejectsAlreadyDeniedOrCancelled(BookingStatusTypes status)
     {
         var (_, showing) = CreateShowing(DateTime.Now.AddDays(2));
         var booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, status);
-        Action act = () => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true));
+        Action act = () => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         booking.Status.Should().Be(status);
@@ -91,7 +89,7 @@ public class CancelBookingTests
     {
         var (_, showing) = CreateShowing(DateTime.Now.AddMinutes(minutes));
         var booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, BookingStatusTypes.CONFIRMED);
-        Action act = () => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true));
+        Action act = () => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         booking.Status.Should().Be(BookingStatusTypes.CONFIRMED);
@@ -103,10 +101,10 @@ public class CancelBookingTests
     {
         var (schedule, showing) = CreateShowing(DateTime.Now.AddDays(2));
         var first = ReceiveAndCommit(schedule, showing, "A1");
-        BookingTool.CancelBooking(first, first.CustomerId, new ExternalAuthenticator(true));
+        BookingTool.CancelBooking(first, first.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
         var second = ReceiveAndCommit(schedule, showing, "A1");
 
-        Action act = () => BookingTool.CancelBooking(first, first.CustomerId, new ExternalAuthenticator(true));
+        Action act = () => BookingTool.CancelBooking(first, first.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         second.Status.Should().Be(BookingStatusTypes.CONFIRMED);
@@ -118,18 +116,17 @@ public class CancelBookingTests
     {
         var (schedule, showing) = CreateShowing(DateTime.Now.AddDays(2));
         var booking = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, Guid.NewGuid(), new[] { "A1" }).Booking!;
-        BookingTool.VerifyPayment(booking, new ExternalPaymentSystem(true));
         using var barrier = new Barrier(2);
         var cancellationToken = TestContext.Current.CancellationToken;
         var commit = Task.Run(() =>
         {
             barrier.SignalAndWait(cancellationToken);
-            return Record.Exception(() => BookingTool.CommitBooking(schedule, booking));
+            return Record.Exception(() => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true)));
         }, cancellationToken);
         var cancel = Task.Run(() =>
         {
             barrier.SignalAndWait(cancellationToken);
-            BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true));
+            return Record.Exception(() => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true)));
         }, cancellationToken);
 
         await Task.WhenAll(commit, cancel);
@@ -137,20 +134,29 @@ public class CancelBookingTests
         var error = await commit;
         if (error is not null)
             error.Should().BeOfType<InvalidOperationException>();
-        booking.Status.Should().Be(BookingStatusTypes.DENIED);
-        showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.AVAILABLE);
+        var cancelError = await cancel;
+        if (cancelError is not null)
+            cancelError.Should().BeOfType<InvalidOperationException>();
+        if (booking.Status == BookingStatusTypes.CONFIRMED)
+            showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.OCCUPIED);
+        else
+        {
+            booking.Status.Should().Be(BookingStatusTypes.CANCELLED);
+            showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.AVAILABLE);
+        }
     }
 
     [Fact]
-    public void CancelBooking_AllowsCancellationOfManagerCancelledShowingBeforeItsStart()
+    public void CancelBooking_RejectsCancellationOfManagerCancelledShowing()
     {
         var (schedule, showing) = CreateShowing(DateTime.Now.AddDays(2));
         var booking = ReceiveAndCommit(schedule, showing, "A1");
-        CinemaManager.CancelShowing(schedule, showing.ShowingId);
+        CinemaManager.CancelShowing(schedule, showing.ShowingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
-        BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true));
+        Action act = () => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
 
-        booking.Status.Should().Be(BookingStatusTypes.DENIED);
+        act.Should().Throw<InvalidOperationException>();
+        booking.Status.Should().Be(BookingStatusTypes.CANCELLED);
         showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.AVAILABLE);
     }
 
@@ -159,11 +165,13 @@ public class CancelBookingTests
     {
         var (schedule, showing) = CreateShowing(DateTime.Now.AddDays(2));
         var booking = ReceiveAndCommit(schedule, showing, "A1");
-        Action nullBooking = () => BookingTool.CancelBooking(null!, booking.CustomerId, new ExternalAuthenticator(true));
-        Action nullAuthenticator = () => BookingTool.CancelBooking(booking, booking.CustomerId, null!);
+        Action nullBooking = () => BookingTool.CancelBooking(null!, booking.CustomerId, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
+        Action nullAuthenticator = () => BookingTool.CancelBooking(booking, booking.CustomerId, null!, new ExternalPaymentSystem(true));
+        Action nullPayment = () => BookingTool.CancelBooking(booking, booking.CustomerId, new ExternalAuthenticator(true), null!);
 
         nullBooking.Should().Throw<ArgumentNullException>().WithParameterName("booking");
         nullAuthenticator.Should().Throw<ArgumentNullException>().WithParameterName("authenticator");
+        nullPayment.Should().Throw<ArgumentNullException>().WithParameterName("paymentSystem");
         booking.Status.Should().Be(BookingStatusTypes.CONFIRMED);
         showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.OCCUPIED);
     }
@@ -198,8 +206,7 @@ public class CancelBookingTests
     private static CinemaBooking ReceiveAndCommit(Schedule schedule, Showing showing, params string[] seats)
     {
         var booking = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, Guid.NewGuid(), seats).Booking!;
-        BookingTool.VerifyPayment(booking, new ExternalPaymentSystem(true));
-        BookingTool.CommitBooking(schedule, booking);
+        BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
         return booking;
     }
 }

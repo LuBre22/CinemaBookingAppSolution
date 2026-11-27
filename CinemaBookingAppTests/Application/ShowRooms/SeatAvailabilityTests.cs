@@ -108,7 +108,7 @@ public class SeatAvailabilityTests
         CinemaManager.AddShowing(catalog, schedule, room, showingId, film, start, 10m);
         var original = schedule.ScheduleEntries.Single().Showing;
 
-        CinemaManager.CancelShowing(schedule, showingId);
+        CinemaManager.CancelShowing(schedule, showingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
         Room.GetOrCreate(id, new[] { "B1" });
         CinemaManager.AddShowing(catalog, schedule, room, Guid.NewGuid(), film, start, 10m);
 

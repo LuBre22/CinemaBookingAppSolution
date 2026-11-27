@@ -17,11 +17,15 @@ public sealed class Bookings
     public void Add(Booking booking)
     {
         ArgumentNullException.ThrowIfNull(booking);
-        lock (_lock)
+        lock (booking.Showing.SyncRoot)
         {
-            if (_bookings.Contains(booking))
-                throw new InvalidOperationException("The booking is already stored.");
-            _bookings.Add(booking);
+            lock (_lock)
+            {
+                if (_bookings.Contains(booking))
+                    throw new InvalidOperationException("The booking is already stored.");
+                booking.Showing.RegisterBooking(booking);
+                _bookings.Add(booking);
+            }
         }
     }
 
@@ -32,7 +36,8 @@ public sealed class Bookings
 
         lock (_lock)
         {
-            return Array.AsReadOnly(_bookings.Where(booking => booking.CustomerId == customerId).ToArray());
+            return Array.AsReadOnly(_bookings.Where(booking => booking.CustomerId == customerId)
+                .OrderBy(booking => booking.Showing.StartingTime).ToArray());
         }
     }
 }

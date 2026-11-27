@@ -34,7 +34,7 @@ public class ProgramTests
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, otherRoom, secondLate, secondFilm, start.AddHours(4), 10m);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, otherRoom, firstEarly, firstFilm, start, 10m);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, cancelled, firstFilm, start.AddHours(8), 10m);
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, cancelled);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, cancelled, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         var result = CinemaProgram.GetProgram(
             schedule, DateTime.Today.AddDays(-3), start.AddDays(1));
@@ -107,7 +107,7 @@ public class ProgramTests
         var removedLineId = Guid.NewGuid();
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, scheduledId, film, start, 10m);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, removedLineId, film, start.AddDays(1), 10m);
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, removedLineId);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, removedLineId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         var result = CinemaProgram.GetProgram(schedule, start, start.AddDays(3));
 

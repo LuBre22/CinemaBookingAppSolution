@@ -2,7 +2,7 @@ using CinemaBookingApp.Application.Booking;
 
 namespace CinemaBookingApp.Domain.Payment;
 
-public sealed class ExternalPaymentSystem
+public class ExternalPaymentSystem
 {
     public ExternalPaymentSystem(bool approve)
     {
@@ -11,15 +11,21 @@ public sealed class ExternalPaymentSystem
 
     public bool Approve { get; }
 
-    public void ApprovePayment(Booking booking)
+    public bool ApprovePayment(Booking booking)
     {
         ArgumentNullException.ThrowIfNull(booking);
-        booking.ApplyPaymentDecision(true);
+        return true;
     }
 
-    public void RejectPayment(Booking booking)
+    public bool RejectPayment(Booking booking)
     {
         ArgumentNullException.ThrowIfNull(booking);
-        booking.ApplyPaymentDecision(false);
+        return false;
+    }
+
+    public virtual bool Refund(Booking booking)
+    {
+        ArgumentNullException.ThrowIfNull(booking);
+        return true;
     }
 }

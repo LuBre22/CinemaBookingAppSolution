@@ -23,7 +23,7 @@ public class CommitBookingTests
         CinemaManager.AddShowing(catalog, schedule, showing.Room, otherId, showing.Film, showing.StartingTime.AddDays(1), 12.50m);
         var booking = ReceiveAndConfirm(schedule, showing, "A1", "A2");
 
-        BookingTool.CommitBooking(schedule, booking);
+        BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
         booking.Status.Should().Be(BookingStatusTypes.CONFIRMED);
         showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.OCCUPIED);
@@ -37,7 +37,7 @@ public class CommitBookingTests
     }
 
     [Theory]
-    [InlineData(BookingStatusTypes.RECEIVED)]
+    [InlineData(BookingStatusTypes.CONFIRMED)]
     [InlineData(BookingStatusTypes.DENIED)]
     [InlineData(BookingStatusTypes.CANCELLED)]
     public void CommitBooking_ShouldRejectOtherStatuses(BookingStatusTypes status)
@@ -45,7 +45,7 @@ public class CommitBookingTests
         var (schedule, showing) = CreateShowing();
         var booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, status);
 
-        Action act = () => BookingTool.CommitBooking(schedule, booking);
+        Action act = () => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         booking.Status.Should().Be(status);
@@ -58,9 +58,9 @@ public class CommitBookingTests
         var (schedule, showing) = CreateShowing();
         var first = ReceiveAndConfirm(schedule, showing, "A1");
         var second = ReceiveAndConfirm(schedule, showing, "A1", "A2");
-        BookingTool.CommitBooking(schedule, first);
+        BookingTool.CommitBooking(schedule, first, new ExternalPaymentSystem(true));
 
-        Action act = () => BookingTool.CommitBooking(schedule, second);
+        Action act = () => BookingTool.CommitBooking(schedule, second, new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         second.Status.Should().Be(BookingStatusTypes.DENIED);
@@ -73,9 +73,9 @@ public class CommitBookingTests
     {
         var (schedule, showing) = CreateShowing();
         var booking = ReceiveAndConfirm(schedule, showing, "A1");
-        BookingTool.CommitBooking(schedule, booking);
+        BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
-        Action act = () => BookingTool.CommitBooking(schedule, booking);
+        Action act = () => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         booking.Status.Should().Be(BookingStatusTypes.CONFIRMED);
@@ -92,7 +92,7 @@ public class CommitBookingTests
         if (cancelled)
         {
             booking = ReceiveAndConfirm(schedule, showing, "A1");
-            CinemaManager.CancelShowing(schedule, showing.ShowingId);
+            CinemaManager.CancelShowing(schedule, showing.ShowingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
         }
         else
         {
@@ -100,13 +100,13 @@ public class CommitBookingTests
             showing.Room.AddShowing(old);
             schedule.AddShowing(showing.Room, old);
             showing = old;
-            booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, BookingStatusTypes.CONFIRMED);
+            booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1" }, BookingStatusTypes.RECEIVED);
         }
 
-        Action act = () => BookingTool.CommitBooking(schedule, booking);
+        Action act = () => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
-        booking.Status.Should().Be(BookingStatusTypes.DENIED);
+        booking.Status.Should().Be(cancelled ? BookingStatusTypes.CANCELLED : BookingStatusTypes.DENIED);
         showing.Seats.Values.Should().OnlyContain(value => value == SeatAvailabilityTypes.AVAILABLE);
     }
 
@@ -116,9 +116,9 @@ public class CommitBookingTests
     public void CommitBooking_ShouldDenyInvalidSelectionWithoutPartialReservation(string invalid)
     {
         var (schedule, showing) = CreateShowing();
-        var booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1", invalid }, BookingStatusTypes.CONFIRMED);
+        var booking = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1", invalid }, BookingStatusTypes.RECEIVED);
 
-        Action act = () => BookingTool.CommitBooking(schedule, booking);
+        Action act = () => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         booking.Status.Should().Be(BookingStatusTypes.DENIED);
@@ -130,9 +130,9 @@ public class CommitBookingTests
     {
         var (schedule, showing) = CreateShowing();
         var other = new Showing(showing.ShowingId, showing.Film, showing.StartingTime, 12.50m, showing.Room);
-        var booking = new CinemaBooking(other, Guid.NewGuid(), new[] { "A1" }, BookingStatusTypes.CONFIRMED);
+        var booking = new CinemaBooking(other, Guid.NewGuid(), new[] { "A1" }, BookingStatusTypes.RECEIVED);
 
-        Action act = () => BookingTool.CommitBooking(schedule, booking);
+        Action act = () => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         booking.Status.Should().Be(BookingStatusTypes.DENIED);
@@ -143,11 +143,11 @@ public class CommitBookingTests
     public void CommitBooking_ShouldDenyEmptyOrDuplicateSelections()
     {
         var (schedule, showing) = CreateShowing();
-        var empty = new CinemaBooking(showing, Guid.NewGuid(), Array.Empty<string>(), BookingStatusTypes.CONFIRMED);
-        var duplicate = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1", "A1" }, BookingStatusTypes.CONFIRMED);
+        var empty = new CinemaBooking(showing, Guid.NewGuid(), Array.Empty<string>(), BookingStatusTypes.RECEIVED);
+        var duplicate = new CinemaBooking(showing, Guid.NewGuid(), new[] { "A1", "A1" }, BookingStatusTypes.RECEIVED);
 
-        Action emptyCommit = () => BookingTool.CommitBooking(schedule, empty);
-        Action duplicateCommit = () => BookingTool.CommitBooking(schedule, duplicate);
+        Action emptyCommit = () => BookingTool.CommitBooking(schedule, empty, new ExternalPaymentSystem(true));
+        Action duplicateCommit = () => BookingTool.CommitBooking(schedule, duplicate, new ExternalPaymentSystem(true));
 
         emptyCommit.Should().Throw<InvalidOperationException>();
         duplicateCommit.Should().Throw<InvalidOperationException>();
@@ -166,7 +166,7 @@ public class CommitBookingTests
         Task<Exception?> Commit(CinemaBooking booking) => Task.Run(() =>
         {
             barrier.SignalAndWait();
-            return Record.Exception(() => BookingTool.CommitBooking(schedule, booking));
+            return Record.Exception(() => BookingTool.CommitBooking(schedule, booking, new ExternalPaymentSystem(true)));
         });
 
         var outcomes = await Task.WhenAll(Commit(first), Commit(second));
@@ -183,12 +183,12 @@ public class CommitBookingTests
     {
         var (schedule, showing) = CreateShowing();
         var booking = ReceiveAndConfirm(schedule, showing, "A1");
-        Action noSchedule = () => BookingTool.CommitBooking(null!, booking);
-        Action noBooking = () => BookingTool.CommitBooking(schedule, null!);
+        Action noSchedule = () => BookingTool.CommitBooking(null!, booking, new ExternalPaymentSystem(true));
+        Action noBooking = () => BookingTool.CommitBooking(schedule, null!, new ExternalPaymentSystem(true));
 
         noSchedule.Should().Throw<ArgumentNullException>().WithParameterName("schedule");
         noBooking.Should().Throw<ArgumentNullException>().WithParameterName("booking");
-        booking.Status.Should().Be(BookingStatusTypes.CONFIRMED);
+        booking.Status.Should().Be(BookingStatusTypes.RECEIVED);
         showing.Seats["A1"].Should().Be(SeatAvailabilityTypes.AVAILABLE);
     }
 
@@ -207,7 +207,6 @@ public class CommitBookingTests
     private static CinemaBooking ReceiveAndConfirm(Schedule schedule, Showing showing, params string[] seats)
     {
         var booking = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, Guid.NewGuid(), seats).Booking!;
-        BookingTool.VerifyPayment(booking, new ExternalPaymentSystem(true));
         return booking;
     }
 }

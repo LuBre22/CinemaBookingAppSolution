@@ -30,6 +30,7 @@ public sealed class Booking
     internal void MarkCommitted()
     {
         IsCommitted = true;
+        Status = BookingStatusTypes.CONFIRMED;
     }
 
     internal void DenyReservation()
@@ -37,14 +38,9 @@ public sealed class Booking
         Status = BookingStatusTypes.DENIED;
     }
 
-    internal void ApplyPaymentDecision(bool approved)
+    internal void MarkCancelled()
     {
-        lock (SyncRoot)
-        {
-            if (Status != BookingStatusTypes.RECEIVED)
-                throw new InvalidOperationException("Only received bookings can have their payment verified.");
-
-            Status = approved ? BookingStatusTypes.CONFIRMED : BookingStatusTypes.DENIED;
-        }
+        IsCommitted = false;
+        Status = BookingStatusTypes.CANCELLED;
     }
 }

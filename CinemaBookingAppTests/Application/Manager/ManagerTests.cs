@@ -220,7 +220,7 @@ public class ManagerTests
         schedule.GetShowing(rejectedId).Should().BeNull();
         schedule.CancelledEntries.Should().BeEmpty();
 
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, existingId);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, existingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, rejectedId, film, start, 10m);
         room.Showings.Should().ContainSingle().Which.ShowingId.Should().Be(rejectedId);
     }
@@ -307,7 +307,7 @@ public class ManagerTests
         firstLine.Date.Should().Be(DateOnly.FromDateTime(start));
         secondLine.Date.Should().Be(DateOnly.FromDateTime(start.AddDays(1)));
 
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, firstId);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, firstId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         schedule.ScheduleEntries.Should().ContainSingle().Which.Should().BeSameAs(secondLine);
         schedule.CancelledEntries.Should().ContainSingle().Which.Should().BeSameAs(firstLine);
@@ -340,7 +340,7 @@ public class ManagerTests
     [Fact]
     public void CancelShowing_ShouldRejectNullSchedule()
     {
-        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(null!, Guid.NewGuid());
+        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(null!, Guid.NewGuid(), new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("schedule");
     }
@@ -434,7 +434,7 @@ public class ManagerTests
         catalog.AddMovie(film);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, id, film, start, 12.50m);
 
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, Guid.NewGuid(), film, start, 12.50m);
 
         room.Showings.Should().ContainSingle();
@@ -444,7 +444,7 @@ public class ManagerTests
     [Fact]
     public void CancelShowing_ShouldRejectUnknownShowing()
     {
-        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(new Schedule(), Guid.NewGuid());
+        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(new Schedule(), Guid.NewGuid(), new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -464,7 +464,7 @@ public class ManagerTests
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, firstRoom, firstId, film, start, 12.50m);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, secondRoom, secondId, film, start, 12.50m);
 
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, secondId);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, secondId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         firstRoom.Showings.Should().ContainSingle().Which.ShowingId.Should().Be(firstId);
         secondRoom.Showings.Should().BeEmpty();
@@ -483,7 +483,7 @@ public class ManagerTests
         room.AddShowing(showing);
         schedule.AddShowing(room, showing);
         showing.Status.Should().Be(expectedStatus);
-        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, showing.ShowingId);
+        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, showing.ShowingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         room.Showings.Should().Contain(showing);
@@ -504,7 +504,7 @@ public class ManagerTests
         var direct = new Showing(Guid.NewGuid(), film, start.AddHours(3), 10m, room);
         room.AddShowing(direct);
 
-        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, direct.ShowingId);
+        Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, direct.ShowingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         act.Should().Throw<InvalidOperationException>();
         room.Showings.Should().Contain(direct);
@@ -525,7 +525,7 @@ public class ManagerTests
         room.AddShowing(direct);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, id, film, start.AddHours(3), 10m);
 
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         room.Showings.Should().ContainSingle().Which.Should().BeSameAs(direct);
         schedule.GetShowing(id).Should().BeNull();
@@ -544,7 +544,7 @@ public class ManagerTests
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, id, film, start, 10m);
         var line = schedule.ScheduleEntries.Single();
 
-        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id);
+        CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         line.Showing.Status.Should().Be(FilmStatusCategories.CANCELLED);
         schedule.ScheduleEntries.Should().BeEmpty();
@@ -552,7 +552,7 @@ public class ManagerTests
         schedule.CancelledEntries.Should().ContainSingle().Which.Should().BeSameAs(line);
         line.Room.Should().BeSameAs(room);
         room.Showings.Should().BeEmpty();
-        Action repeat = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id);
+        Action repeat = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
         repeat.Should().Throw<InvalidOperationException>();
         schedule.CancelledEntries.Should().ContainSingle();
 
@@ -575,7 +575,7 @@ public class ManagerTests
         var id = Guid.NewGuid();
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, firstRoom, id, film, start, 10m);
         if (cancelled)
-            CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id);
+            CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, id, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         Action act = () => CinemaBookingApp.Application.Actors.Manager.AddShowing(
             catalog, schedule, secondRoom, id, film, start, 10m);

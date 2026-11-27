@@ -44,7 +44,7 @@ public class BookingToolTests
     public void Receive_ShouldDenyCancelledShowing()
     {
         var (schedule, showing, customerId) = CreateScheduledShowing();
-        CinemaManager.CancelShowing(schedule, showing.ShowingId);
+        CinemaManager.CancelShowing(schedule, showing.ShowingId, new CinemaBookingApp.Domain.Payment.ExternalPaymentSystem(true));
 
         var result = BookingTool.Receive(new Bookings(new ExternalAuthenticator(true)), schedule, showing.ShowingId, customerId, new[] { "A1" });
 

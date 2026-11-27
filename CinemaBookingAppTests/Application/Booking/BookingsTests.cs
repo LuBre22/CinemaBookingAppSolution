@@ -24,8 +24,8 @@ public class BookingsTests
         var cancelled = new CinemaBooking(showing, customer, new[] { "A1" }, BookingStatusTypes.CANCELLED);
         bookings.Add(cancelled);
         var other = BookingTool.Receive(bookings, schedule, showing.ShowingId, Guid.NewGuid(), new[] { "A1" }).Booking!;
-        BookingTool.VerifyPayment(confirmed, new ExternalPaymentSystem(true));
-        BookingTool.VerifyPayment(denied, new ExternalPaymentSystem(false));
+        BookingTool.CommitBooking(schedule, confirmed, new ExternalPaymentSystem(true));
+        BookingTool.CommitBooking(schedule, denied, new ExternalPaymentSystem(false));
 
         var result = bookings.ViewMyBookings(customer);
 
@@ -33,8 +33,8 @@ public class BookingsTests
         result.Should().NotContain(other);
         result.Select(booking => booking.Status).Should().Equal(BookingStatusTypes.RECEIVED,
             BookingStatusTypes.CONFIRMED, BookingStatusTypes.DENIED, BookingStatusTypes.CANCELLED);
-        BookingTool.CancelBooking(confirmed, customer, new ExternalAuthenticator(true));
-        bookings.ViewMyBookings(customer).Should().ContainSingle(b => ReferenceEquals(b, confirmed) && b.Status == BookingStatusTypes.DENIED);
+        BookingTool.CancelBooking(confirmed, customer, new ExternalAuthenticator(true), new ExternalPaymentSystem(true));
+        bookings.ViewMyBookings(customer).Should().ContainSingle(b => ReferenceEquals(b, confirmed) && b.Status == BookingStatusTypes.CANCELLED);
     }
 
     [Fact]
