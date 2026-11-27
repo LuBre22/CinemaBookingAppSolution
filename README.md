@@ -1,4 +1,6 @@
 # Cinema Booking App
+Matrikelnummer: 9908774
+Github Repo: https://github.com/LuBre22/CinemaBookingAppSolution
 
 This .NET cinema demo lets managers create films, schedule and cancel showings, and view the schedule. Customers can browse upcoming showings, select seats, pay for bookings, view their booking history, and cancel eligible bookings.
 
