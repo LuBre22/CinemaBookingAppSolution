@@ -61,7 +61,7 @@ public class ScheduleTests
     public void RemoveScheduleEntry_ShouldRejectStartedShowings(int startOffsetMinutes)
     {
         var (schedule, room, film, _, _) = CreateSetup();
-        var showing = new Showing(Guid.NewGuid(), film, DateTime.Now.AddMinutes(startOffsetMinutes), 10m);
+        var showing = new Showing(Guid.NewGuid(), film, DateTime.Now.AddMinutes(startOffsetMinutes), 10m, room);
         room.AddShowing(showing);
         schedule.AddShowing(room, showing);
         var line = schedule.ScheduleEntries.Single();
@@ -110,6 +110,6 @@ public class ScheduleTests
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
-        return (new Schedule(), Room.GetOrCreate(Guid.NewGuid(), 100), film, catalog, DateTime.Today.AddDays(3).AddHours(12));
+        return (new Schedule(), Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100)), film, catalog, DateTime.Today.AddDays(3).AddHours(12));
     }
 }

@@ -13,11 +13,11 @@ public class ProgramTests
     {
         var firstFilm = new Film(Guid.NewGuid(), "Same title", Genre.Drama, TimeSpan.FromMinutes(60));
         var secondFilm = new Film(Guid.NewGuid(), "Same title", Genre.Comedy, TimeSpan.FromMinutes(60));
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
-        var otherRoom = Room.GetOrCreate(Guid.NewGuid(), 80);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
+        var otherRoom = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(80));
         var schedule = new Schedule();
         var start = DateTime.Today.AddDays(3).AddHours(12);
-        var past = new Showing(Guid.NewGuid(), firstFilm, DateTime.Today.AddDays(-2), 10m);
+        var past = new Showing(Guid.NewGuid(), firstFilm, DateTime.Today.AddDays(-2), 10m, room);
         room.AddShowing(past);
         schedule.AddShowing(room, past);
 
@@ -54,22 +54,23 @@ public class ProgramTests
         firstLine.StartTime.Should().Be(start);
         firstLine.Duration.Should().Be(firstFilm.Duration);
         firstLine.Room.Should().BeSameAs(otherRoom);
-        firstLine.AvailableSeats.Should().Be(80);
+        firstLine.AvailableSeats.Should().HaveCount(80)
+            .And.OnlyContain(seat => seat.Value == SeatAvailabilityTypes.AVAILABLE);
     }
 
     [Fact]
     public void GetProgram_ShouldHonorInclusiveDateRange()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
         var schedule = new Schedule();
         var start = DateTime.Today.AddDays(3).AddHours(12);
-        var before = new Showing(Guid.NewGuid(), film, start.AddHours(-2), 10m);
-        var first = new Showing(Guid.NewGuid(), film, start, 10m);
-        var last = new Showing(Guid.NewGuid(), film, start.AddHours(2), 10m);
-        var after = new Showing(Guid.NewGuid(), film, start.AddHours(4), 10m);
+        var before = new Showing(Guid.NewGuid(), film, start.AddHours(-2), 10m, room);
+        var first = new Showing(Guid.NewGuid(), film, start, 10m, room);
+        var last = new Showing(Guid.NewGuid(), film, start.AddHours(2), 10m, room);
+        var after = new Showing(Guid.NewGuid(), film, start.AddHours(4), 10m, room);
         foreach (var showing in new[] { before, first, last, after })
             CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, showing.ShowingId, film, showing.StartingTime, showing.TicketPrice);
 
@@ -96,7 +97,7 @@ public class ProgramTests
     [Fact]
     public void GetProgram_ShouldExcludeCancelledShowings()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
@@ -116,14 +117,14 @@ public class ProgramTests
     [Fact]
     public void GetProgram_ShouldExcludeInternallyAddedRoomShowingOnScheduledDate()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
         var schedule = new Schedule();
         var start = DateTime.Today.AddDays(3).AddHours(12);
         var scheduledId = Guid.NewGuid();
-        var direct = new Showing(Guid.NewGuid(), film, start.AddHours(2), 10m);
+        var direct = new Showing(Guid.NewGuid(), film, start.AddHours(2), 10m, room);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, scheduledId, film, start, 10m);
         room.AddShowing(direct);
 
@@ -136,7 +137,7 @@ public class ProgramTests
     [Fact]
     public void GetProgram_ShouldExcludeShowingsScheduledInAnotherSchedule()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
@@ -157,7 +158,7 @@ public class ProgramTests
     [Fact]
     public void GetProgram_ShouldRetainScheduledShowingWhenDirectRoomRemovalIsRejected()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
@@ -178,8 +179,8 @@ public class ProgramTests
     [Fact]
     public void GetProgram_ShouldPreserveEachShowingsRoom()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
-        var otherRoom = Room.GetOrCreate(Guid.NewGuid(), 80);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
+        var otherRoom = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(80));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
@@ -191,13 +192,13 @@ public class ProgramTests
         var result = CinemaProgram.GetProgram(schedule, start, start.AddDays(1));
 
         result.Select(line => line.Room).Should().Equal(room, otherRoom);
-        result.Select(line => line.AvailableSeats).Should().Equal(100, 80);
+        result.Select(line => line.AvailableSeats.Count).Should().Equal(100, 80);
     }
 
     [Fact]
     public void GetProgram_ShouldOrderFilmShowingsAcrossScheduleLines()
     {
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);

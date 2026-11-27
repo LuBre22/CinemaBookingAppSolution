@@ -12,7 +12,7 @@ public static class Program
         DateTime StartTime,
         TimeSpan Duration,
         Room Room,
-        int AvailableSeats
+        IReadOnlyDictionary<string, SeatAvailabilityTypes> AvailableSeats
     );
     
     public static List<ProgramLine> GetProgram(
@@ -36,7 +36,7 @@ public static class Program
                 item.Showing.StartingTime,
                 item.Showing.Film.Duration,
                 item.Room,
-                item.Room.Capacity - item.Showing.BookedSeats))
+                item.Showing.Seats))
             .ToList();
     }
 }

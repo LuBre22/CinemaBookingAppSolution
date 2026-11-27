@@ -13,7 +13,7 @@ public class ShowingTests
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
         var start = new DateTime(2026, 11, 26, 23, 0, 0, DateTimeKind.Utc);
 
-        var showing = new Showing(id, film, start, 12.50m);
+        var showing = new Showing(id, film, start, 12.50m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         showing.ShowingId.Should().Be(id);
         showing.Film.Should().BeSameAs(film);
@@ -27,7 +27,7 @@ public class ShowingTests
     public void Constructor_ShouldRejectEmptyShowingId()
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        Action act = () => new Showing(Guid.Empty, film, new DateTime(2026, 11, 26, 12, 0, 0), 12.50m);
+        Action act = () => new Showing(Guid.Empty, film, new DateTime(2026, 11, 26, 12, 0, 0), 12.50m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         act.Should().Throw<ArgumentException>().WithParameterName("showingId");
     }
@@ -35,16 +35,25 @@ public class ShowingTests
     [Fact]
     public void Constructor_ShouldRejectNullFilm()
     {
-        Action act = () => new Showing(Guid.NewGuid(), null!, new DateTime(2026, 11, 26, 12, 0, 0), 12.50m);
+        Action act = () => new Showing(Guid.NewGuid(), null!, new DateTime(2026, 11, 26, 12, 0, 0), 12.50m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("film");
+    }
+
+    [Fact]
+    public void Constructor_ShouldRejectNullRoom()
+    {
+        var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
+        Action act = () => new Showing(Guid.NewGuid(), film, DateTime.Today.AddDays(2), 10m, null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("room");
     }
 
     [Fact]
     public void Constructor_ShouldRejectEndTimeOverflow()
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        Action act = () => new Showing(Guid.NewGuid(), film, DateTime.MaxValue, 12.50m);
+        Action act = () => new Showing(Guid.NewGuid(), film, DateTime.MaxValue, 12.50m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -55,7 +64,7 @@ public class ShowingTests
     public void Constructor_ShouldRejectNonPositiveTicketPrice(int price)
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        Action act = () => new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), price);
+        Action act = () => new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), price, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("ticketPrice");
     }
@@ -64,7 +73,7 @@ public class ShowingTests
     public void Constructor_ShouldRejectTicketPriceWithMoreThanTwoDecimalPlaces()
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
-        Action act = () => new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), 12.345m);
+        Action act = () => new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), 12.345m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("ticketPrice");
     }
@@ -74,7 +83,7 @@ public class ShowingTests
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.ScienceFiction, TimeSpan.FromMinutes(116));
 
-        var showing = new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), 12m);
+        var showing = new Showing(Guid.NewGuid(), film, new DateTime(2026, 11, 26, 12, 0, 0), 12m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         showing.TicketPrice.Should().Be(12m);
     }

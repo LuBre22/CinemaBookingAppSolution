@@ -1,5 +1,6 @@
 using CinemaBookingApp.Domain.Films;
 using CinemaBookingApp.Domain.Money;
+using System.Collections.ObjectModel;
 
 namespace CinemaBookingApp.Application.ShowRooms;
 
@@ -11,14 +12,16 @@ public sealed class Showing
     private readonly DateTime _endingTime;
     private bool _cancelled;
     public decimal TicketPrice { get; private set; }
-    public int BookedSeats { get; private set; } = 0;
+    public Room Room { get; }
+    public IReadOnlyDictionary<string, SeatAvailabilityTypes> Seats { get; }
     
-    public Showing(Guid showingId, Film film, DateTime startingTime, Decimal ticketPrice)
+    public Showing(Guid showingId, Film film, DateTime startingTime, Decimal ticketPrice, Room room)
     {
         if (showingId == Guid.Empty)
             throw new ArgumentException("Showing ID must not be empty.", nameof(showingId));
 
         ArgumentNullException.ThrowIfNull(film);
+        ArgumentNullException.ThrowIfNull(room);
 
         if (!ValidateMoney.IsPositive(ticketPrice))
             throw new ArgumentOutOfRangeException(nameof(ticketPrice), "Ticket price must be positive.");
@@ -31,6 +34,9 @@ public sealed class Showing
         _startingTime = startingTime;
         TicketPrice = ticketPrice;
         _endingTime = startingTime.Add(film.Duration);
+        Room = room;
+        Seats = new ReadOnlyDictionary<string, SeatAvailabilityTypes>(
+            room.SeatIds.ToDictionary(id => id, _ => SeatAvailabilityTypes.AVAILABLE, StringComparer.Ordinal));
     }
     
     public Guid ShowingId => _showingId;

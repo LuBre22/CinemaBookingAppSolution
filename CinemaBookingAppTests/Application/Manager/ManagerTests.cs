@@ -12,7 +12,7 @@ public class ManagerTests
     {
         var catalog = new FilmCatalog();
         var schedule = new Schedule();
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = CreateFilm();
 
         Action act = () => CinemaBookingApp.Application.Actors.Manager.AddShowing(
@@ -30,7 +30,7 @@ public class ManagerTests
         var film = CreateFilm();
         catalog.AddMovie(film);
         catalog.RemoveMovie(film.MovieId);
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var schedule = new Schedule();
 
         Action act = () => CinemaBookingApp.Application.Actors.Manager.AddShowing(
@@ -48,7 +48,7 @@ public class ManagerTests
         var film = CreateFilm();
         catalog.AddMovie(film);
         var supplied = new Film(film.MovieId, "Different", Genre.Drama, TimeSpan.FromMinutes(30));
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
 
         CinemaBookingApp.Application.Actors.Manager.AddShowing(
             catalog, new Schedule(), room, Guid.NewGuid(), supplied, DateTime.Now.AddDays(2), 10m);
@@ -60,7 +60,7 @@ public class ManagerTests
     public void AddShowing_ShouldRejectNullCatalog()
     {
         Action act = () => CinemaBookingApp.Application.Actors.Manager.AddShowing(
-            null!, new Schedule(), Room.GetOrCreate(Guid.NewGuid(), 100),
+            null!, new Schedule(), Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100)),
             Guid.NewGuid(), CreateFilm(), DateTime.Now.AddDays(2), 10m);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("catalog");
@@ -202,7 +202,7 @@ public class ManagerTests
         var catalog = new FilmCatalog();
         var film = CreateFilm();
         catalog.AddMovie(film);
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var schedule = new Schedule();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var existingId = Guid.NewGuid();
@@ -332,7 +332,7 @@ public class ManagerTests
         var catalog = new FilmCatalog();
         var film = CreateFilm();
         catalog.AddMovie(film);
-        Action act = () => CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, null!, Room.GetOrCreate(Guid.NewGuid(), 100), Guid.NewGuid(), film, DateTime.Now.AddDays(2), 12.50m);
+        Action act = () => CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, null!, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100)), Guid.NewGuid(), film, DateTime.Now.AddDays(2), 12.50m);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("schedule");
     }
@@ -392,7 +392,7 @@ public class ManagerTests
     public void AddShowing_ShouldRejectExcessPrecisionWithoutSavingShowing()
     {
         var schedule = new Schedule();
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var catalog = new FilmCatalog();
         var film = CreateFilm();
         catalog.AddMovie(film);
@@ -409,7 +409,7 @@ public class ManagerTests
     public void AddShowing_ShouldRejectEmptyShowingIdWithoutSavingShowing()
     {
         var schedule = new Schedule();
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var catalog = new FilmCatalog();
         var film = CreateFilm();
         catalog.AddMovie(film);
@@ -453,8 +453,8 @@ public class ManagerTests
     public void CancelShowing_ShouldRemoveOnlyTheMatchingShowingFromItsRoom()
     {
         var schedule = new Schedule();
-        var firstRoom = Room.GetOrCreate(Guid.NewGuid(), 100);
-        var secondRoom = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var firstRoom = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
+        var secondRoom = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var firstId = Guid.NewGuid();
@@ -478,8 +478,9 @@ public class ManagerTests
     {
         var schedule = new Schedule();
         var start = DateTime.Now.AddMinutes(startOffsetMinutes);
-        var showing = new Showing(Guid.NewGuid(), CreateFilm(), start, 12.50m);
-        var room = CreateRoom(Guid.NewGuid(), new[] { showing });
+        var room = CreateRoom(Guid.NewGuid(), Array.Empty<Showing>());
+        var showing = new Showing(Guid.NewGuid(), CreateFilm(), start, 12.50m, room);
+        room.AddShowing(showing);
         schedule.AddShowing(room, showing);
         showing.Status.Should().Be(expectedStatus);
         Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, showing.ShowingId);
@@ -494,13 +495,13 @@ public class ManagerTests
     public void CancelShowing_ShouldRejectShowingNotExplicitlyScheduled()
     {
         var schedule = new Schedule();
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, Guid.NewGuid(), film, start, 10m);
-        var direct = new Showing(Guid.NewGuid(), film, start.AddHours(3), 10m);
+        var direct = new Showing(Guid.NewGuid(), film, start.AddHours(3), 10m, room);
         room.AddShowing(direct);
 
         Action act = () => CinemaBookingApp.Application.Actors.Manager.CancelShowing(schedule, direct.ShowingId);
@@ -514,13 +515,13 @@ public class ManagerTests
     public void CancelShowing_ShouldRemoveScheduledInstanceWhenRoomHasAnotherShowingWithSameId()
     {
         var schedule = new Schedule();
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = CreateFilm();
         var start = DateTime.Today.AddDays(2).AddHours(12);
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
         var id = Guid.NewGuid();
-        var direct = new Showing(id, film, start, 10m);
+        var direct = new Showing(id, film, start, 10m, room);
         room.AddShowing(direct);
         CinemaBookingApp.Application.Actors.Manager.AddShowing(catalog, schedule, room, id, film, start.AddHours(3), 10m);
 
@@ -534,7 +535,7 @@ public class ManagerTests
     public void CancelShowing_ShouldArchiveCancelledShowingAndReleaseRoom()
     {
         var schedule = new Schedule();
-        var room = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var room = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = CreateFilm();
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
@@ -565,8 +566,8 @@ public class ManagerTests
     public void AddShowing_ShouldRejectIdAlreadyInScheduleOrHistory(bool cancelled)
     {
         var schedule = new Schedule();
-        var firstRoom = Room.GetOrCreate(Guid.NewGuid(), 100);
-        var secondRoom = Room.GetOrCreate(Guid.NewGuid(), 100);
+        var firstRoom = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
+        var secondRoom = Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(100));
         var film = CreateFilm();
         var catalog = new FilmCatalog();
         catalog.AddMovie(film);
@@ -592,7 +593,7 @@ public class ManagerTests
 
     private static Room CreateRoom(Guid id, IEnumerable<Showing> showings)
     {
-        var room = Room.GetOrCreate(id, 100);
+        var room = Room.GetOrCreate(id, TestSeatIds.Create(100));
         foreach (var showing in showings)
             room.AddShowing(showing);
         return room;

@@ -11,7 +11,7 @@ public class ShowingStatusTests
     {
         var start = new DateTime(2030, 1, 1, 12, 0, 0);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
-        var showing = new Showing(Guid.NewGuid(), film, start, 10m);
+        var showing = new Showing(Guid.NewGuid(), film, start, 10m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         showing.GetStatus(start.AddTicks(-1)).Should().Be(FilmStatusCategories.PLANNED);
         showing.GetStatus(start).Should().Be(FilmStatusCategories.RUNNING);
@@ -24,7 +24,7 @@ public class ShowingStatusTests
     {
         var start = DateTime.Now.AddDays(1);
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
-        var showing = new Showing(Guid.NewGuid(), film, start, 10m);
+        var showing = new Showing(Guid.NewGuid(), film, start, 10m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         showing.Cancel();
 
@@ -40,7 +40,7 @@ public class ShowingStatusTests
     public void Cancel_ShouldRejectRunningAndOverShowings(int startOffsetMinutes)
     {
         var film = new Film(Guid.NewGuid(), "Arrival", Genre.Drama, TimeSpan.FromMinutes(60));
-        var showing = new Showing(Guid.NewGuid(), film, DateTime.Now.AddMinutes(startOffsetMinutes), 10m);
+        var showing = new Showing(Guid.NewGuid(), film, DateTime.Now.AddMinutes(startOffsetMinutes), 10m, Room.GetOrCreate(Guid.NewGuid(), TestSeatIds.Create(1)));
 
         Action act = () => showing.Cancel();
 

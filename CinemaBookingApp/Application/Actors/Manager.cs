@@ -27,7 +27,7 @@ public sealed class Manager
         if (!StartingTime.isFutureTime(startingTime))
             throw new InvalidOperationException("The showing must start in the future.");
 
-        var showing = new Showing(showingId, catalogFilm, startingTime, ticketPrice);
+        var showing = new Showing(showingId, catalogFilm, startingTime, ticketPrice, room);
         schedule.EnsureShowingIdAvailable(showingId);
         room.AddShowing(showing);
         schedule.AddShowing(room, showing);
