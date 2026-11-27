@@ -1,0 +1,234 @@
+@startuml CinemaBookingApp
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "CinemaBookingApp.Cli" {
+  class CinemaConsole {
+    - FilmCatalog _catalog
+    - Schedule _schedule
+    - Bookings _bookings
+    - List<Room> _rooms
+    - Dictionary<Guid, List<Booking>> _carts
+    - ExternalPaymentSystem _refundSystem
+    + Run()
+  }
+}
+
+package "CinemaBookingApp.Application.Actors" {
+  class Manager <<static>> {
+    + CreateFilm(catalog, name, genre, duration)
+    + AddShowing(catalog, schedule, room, showingId, film, start, ticketPrice)
+    + CancelShowing(schedule, showingId, paymentSystem)
+  }
+}
+
+package "CinemaBookingApp.Application.Scheduler" {
+  class Schedule {
+    + ScheduleEntries : IReadOnlyList<ScheduleLine>
+    + CancelledEntries : IReadOnlyList<ScheduleLine>
+    + RemoveScheduleEntry(scheduleLine)
+    + GetShowing(showingId) : Showing
+  }
+
+  class ScheduleLine {
+    + Room : Room
+    + Showing : Showing
+    + Date : DateOnly
+  }
+
+  class "Program" as CinemaProgram <<static>> {
+    + GetProgram(schedule, startingDate, endingDate) : List<ProgramLine>
+  }
+
+  class ProgramLine <<record>> {
+    + ShowingId : Guid
+    + FilmId : Guid
+    + Title : string
+    + StartTime : DateTime
+    + Duration : TimeSpan
+    + Room : Room
+    + AvailableSeats : IReadOnlyDictionary
+  }
+}
+
+package "CinemaBookingApp.Application.ShowRooms" {
+  class Room {
+    + RoomNumber : Guid
+    + Capacity : int
+    + SeatIds : IReadOnlyList<string>
+    + Showings : IReadOnlyList<Showing>
+    + GetOrCreate(roomNumber, seatIds) : Room
+  }
+
+  class Showing {
+    + ShowingId : Guid
+    + Film : Film
+    + StartingTime : DateTime
+    + EndingTime : DateTime
+    + TicketPrice : decimal
+    + Room : Room
+    + Seats : IReadOnlyDictionary
+    + Status : FilmStatusCategories
+    - Cancel()
+    - TryReserveSeats(seatNumbers) : bool
+    - ReleaseSeats(seatNumbers)
+  }
+
+  enum SeatAvailabilityTypes {
+    AVAILABLE
+    OCCUPIED
+  }
+}
+
+package "CinemaBookingApp.Application.Booking" {
+  class Booking {
+    + ShowingId : Guid
+    + CustomerId : Guid
+    + SeatNumbers : IReadOnlyList<string>
+    + Price : decimal
+    + Status : BookingStatusTypes
+    - MarkCommitted()
+    - DenyReservation()
+    - MarkCancelled()
+  }
+
+  class Bookings {
+    + Add(booking)
+    + ViewMyBookings(customerId) : IReadOnlyList<Booking>
+  }
+
+  class BookingTool <<static>> {
+    + Receive(bookings, schedule, showingId, customerId, seatNumbers) : BookingResult
+    + CommitBooking(schedule, booking, paymentSystem)
+    + CancelBooking(booking, customerId, authenticator, paymentSystem)
+  }
+
+  class BookingResult {
+    + Status : BookingStatusTypes
+    + Booking : Booking
+    + DenialReason : BookingDenialReason
+  }
+
+  enum BookingStatusTypes {
+    CONFIRMED
+    RECEIVED
+    DENIED
+    CANCELLED
+  }
+
+  enum BookingDenialReason {
+    ShowingNotFound
+    ShowingNotBookable
+    NoSeatsSelected
+    InvalidOrUnavailableSeat
+  }
+}
+
+package "CinemaBookingApp.Domain.Films" {
+  class Film {
+    + MovieId : Guid
+    + Title : string
+    + Genre : Genre
+    + Duration : TimeSpan
+  }
+
+  class FilmCatalog {
+    + AddMovie(movie)
+    + RemoveMovie(movieId)
+    + TryGetMovie(movieId, out movie) : bool
+    + GetAllMovies() : IEnumerable<Film>
+  }
+
+  enum Genre {
+    Action
+    Comedy
+    Drama
+    Horror
+    Romance
+    ScienceFiction
+    Fantasy
+  }
+
+  enum FilmStatusCategories {
+    CANCELLED
+    PLANNED
+    RUNNING
+    OVER
+  }
+}
+
+package "CinemaBookingApp.Domain.Payment" {
+  class ExternalPaymentSystem {
+    + Approve : bool
+    + ApprovePayment(booking) : bool
+    + RejectPayment(booking) : bool
+    + Refund(booking) : bool
+  }
+}
+
+package "CinemaBookingApp.Domain.Authentification" {
+  class ExternalAuthenticator {
+    + Approve : bool
+    + Authenticate(customerId) : bool
+  }
+}
+
+package "CinemaBookingApp.Domain.Time" {
+  class StartingTime <<static>> {
+    + IsValidBuffer(end, start) : bool
+    + isFutureTime(proposedStart) : bool
+  }
+
+  class TimeShift <<static>> {
+    + Add(ref start, duration)
+  }
+}
+
+CinemaConsole *-- FilmCatalog
+CinemaConsole *-- Schedule
+CinemaConsole *-- Bookings
+CinemaConsole o-- "0..*" Room
+CinemaConsole o-- "0..*" Booking : customer carts
+CinemaConsole --> ExternalPaymentSystem
+
+FilmCatalog o-- "0..*" Film
+Schedule *-- "0..*" ScheduleLine : active and cancelled entries
+ScheduleLine --> Room
+ScheduleLine --> Showing
+Room "1" -- "0..*" Showing
+Showing --> "1" Film
+Showing *-- "0..*" Booking
+Showing ..> SeatAvailabilityTypes
+
+Bookings o-- "0..*" Booking
+Bookings --> ExternalAuthenticator
+Booking --> "1" Showing
+Booking ..> BookingStatusTypes
+BookingResult --> "0..1" Booking
+BookingResult ..> BookingDenialReason
+BookingResult ..> BookingStatusTypes
+
+CinemaProgram ..> Schedule
+CinemaProgram ..> ProgramLine
+ProgramLine --> Room
+ProgramLine ..> SeatAvailabilityTypes
+
+Manager ..> FilmCatalog
+Manager ..> Schedule
+Manager ..> Room
+Manager ..> Film
+Manager ..> Showing
+Manager ..> ExternalPaymentSystem
+
+BookingTool ..> Schedule
+BookingTool ..> Bookings
+BookingTool ..> Booking
+BookingTool ..> ExternalPaymentSystem
+BookingTool ..> ExternalAuthenticator
+
+ExternalPaymentSystem ..> Booking
+StartingTime ..> TimeShift
+Room ..> StartingTime
+Showing ..> FilmStatusCategories
+
+@enduml
